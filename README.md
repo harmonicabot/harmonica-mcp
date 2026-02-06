@@ -1,6 +1,6 @@
 # Harmonica MCP Server
 
-MCP server enabling AI agents to access and query [Harmonica](https://harmonica.chat) deliberation sessions.
+MCP server enabling AI agents to access and query [Harmonica](https://harmonica.chat) sessions.
 
 ## Status
 
