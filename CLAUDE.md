@@ -6,67 +6,70 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MCP (Model Context Protocol) server for Harmonica, enabling AI agents to access and query Harmonica deliberation sessions programmatically.
 
-**Important:** This project depends on a Harmonica REST API that doesn't exist yet. The API must be built first in `harmonica-web-app/`, then this MCP server will be a client of that API.
+## Commands
+
+```bash
+npm run build   # Compile TypeScript → dist/
+npm run dev     # Watch mode compilation
+npm start       # Run the MCP server (requires HARMONICA_API_KEY env var)
+```
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   AI Agents     │     │   Slack Bot     │     │    Web App      │
-│  (Claude, etc)  │     │  (future)       │     │   (current)     │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Harmonica REST API                          │
-│            (to be built in harmonica-web-app)                   │
-└─────────────────────────────────────────────────────────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────┐
-                    │   Neon (Postgres)   │
-                    └─────────────────────┘
+AI Agent (Claude Code, etc.)
+  ↕ stdio (MCP protocol)
+harmonica-mcp (this project)
+  ↕ HTTP (REST API)
+Harmonica API (app.harmonica.chat/api/v1)
+  ↕ SQL
+Neon Postgres
 ```
 
-- **harmonica-mcp/** - This repo: MCP server using `@modelcontextprotocol/sdk`
-- **harmonica-web-app/** - Where the API will be built (Next.js API routes)
-- Both connect to the same Neon Postgres database
+This is a **client** of the Harmonica REST API (`/api/v1/`), which lives in `harmonica-web-app/`.
 
-## Prerequisite: Harmonica API
+## Project Structure
 
-Before this MCP server can be built, the API needs to exist:
-- `GET /api/sessions` - list sessions with filters
-- `GET /api/sessions/:id` - session details
-- `GET /api/sessions/:id/questions` - questions
-- `GET /api/sessions/:id/responses` - responses
-- `POST /api/sessions/:id/responses` - submit response
-- `GET /api/sessions/:id/summary` - summary
+```
+src/
+  index.ts    # MCP server entry point — registers tools, starts stdio transport
+  client.ts   # HTTP client for Harmonica REST API v1
+```
 
-This same API will also enable:
-- Slack/Discord chatbots for participants
-- Mobile apps
-- Zapier/webhook integrations
+## MCP Tools
 
-## MCP Tools (planned)
+| Tool | Description |
+|------|-------------|
+| `list_sessions` | List sessions with optional status filter and search |
+| `get_session` | Get full session details by ID |
+| `get_responses` | Get participant responses for a session |
+| `get_summary` | Get AI-generated session summary |
+| `search_sessions` | Search sessions by topic/goal keywords |
 
-Once the API exists, this server will expose:
-- `list_sessions` - List sessions with filters
-- `get_session` - Get session details
-- `get_responses` - Get responses for a session
-- `get_summary` - Get session summary
-- `search_sessions` - Search across sessions
+## Environment Variables
+
+- `HARMONICA_API_KEY` (required) — API key from Harmonica dashboard
+- `HARMONICA_API_URL` (optional) — API base URL, defaults to `https://app.harmonica.chat`
+
+## Configuration
+
+Add to Claude Code config (`~/.claude.json` or project `.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "harmonica": {
+      "command": "node",
+      "args": ["/path/to/harmonica-mcp/dist/index.js"],
+      "env": {
+        "HARMONICA_API_KEY": "hm_live_..."
+      }
+    }
+  }
+}
+```
 
 ## Related Projects
 
-- `harmonica-web-app/` - Main Harmonica platform (Neon Postgres schema reference)
-- `avatar-sdk/` - CAP protocol (similar MCP server patterns)
-
-## Task Persistence
-
-Tasks persist to `~/.claude/tasks/harmonica-mcp/`
-
-## Context
-
-From OFL Stewards Call (Nov 2025), Jonas noted: "MCP servers just manage how to access the API basically. We would need to have that first."
-
-James (Harry's brother) made the same point about Slack chatbots - Harmonica's architecture has too much hardcoded, making it impossible to build alternative interfaces without a proper API layer.
+- `harmonica-web-app/` — Main Harmonica platform (API source)
+- `avatar-sdk/` — CAP protocol (similar MCP patterns)
