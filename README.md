@@ -1,5 +1,7 @@
 # Harmonica MCP Server
 
+[![npm version](https://img.shields.io/npm/v/harmonica-mcp)](https://www.npmjs.com/package/harmonica-mcp)
+
 MCP server enabling AI agents to create and query [Harmonica](https://harmonica.chat) deliberation sessions.
 
 [Harmonica](https://harmonica.chat) is a structured deliberation platform where groups coordinate through AI-facilitated async conversations. Create a session with a topic and goal, share a link with participants, and each person has a private 1:1 conversation with an AI facilitator. Responses are synthesized into actionable insights.
