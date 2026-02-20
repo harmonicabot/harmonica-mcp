@@ -1,6 +1,6 @@
 {
   "name": "harmonica-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for Harmonica deliberation sessions",
   "license": "MIT",
   "type": "module",
@@ -8,11 +8,27 @@
   "bin": {
     "harmonica-mcp": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsc --watch"
   },
+  "keywords": [
+    "mcp",
+    "harmonica",
+    "deliberation",
+    "facilitation",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harmonicabot/harmonica-mcp.git"
+  },
+  "homepage": "https://github.com/harmonicabot/harmonica-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^3.24.0"

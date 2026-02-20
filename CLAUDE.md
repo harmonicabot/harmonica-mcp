@@ -40,6 +40,7 @@ src/
 
 | Tool | Description |
 |------|-------------|
+| `create_session` | Create a new session and get a shareable join URL |
 | `list_sessions` | List sessions with optional status filter and search |
 | `get_session` | Get full session details by ID |
 | `get_responses` | Get participant responses for a session |

@@ -129,6 +129,42 @@ server.tool(
   },
 );
 
+server.tool(
+  'create_session',
+  'Create a new Harmonica deliberation session and get a shareable join URL',
+  {
+    topic: z.string().describe('Session topic'),
+    goal: z.string().describe('What this session aims to achieve'),
+    context: z.string().optional().describe('Background context for participants'),
+    critical: z.string().optional().describe('Critical question or constraint'),
+    prompt: z.string().optional().describe('Custom facilitation prompt'),
+    template_id: z.string().optional().describe('Template ID to use'),
+    cross_pollination: z.boolean().optional().describe('Enable idea sharing between participant threads'),
+  },
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination }) => {
+    const session = await client.createSession({
+      topic,
+      goal,
+      context,
+      critical,
+      prompt,
+      template_id,
+      cross_pollination,
+    });
+    const text = [
+      `Session created!`,
+      ``,
+      `  Topic:    ${session.topic}`,
+      `  ID:       ${session.id}`,
+      `  Status:   ${session.status}`,
+      `  Join URL: ${session.join_url}`,
+      ``,
+      `Share the join URL with participants to start the session.`,
+    ].join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
 // ─── Start ───────────────────────────────────────────────────────────
 
 async function main() {

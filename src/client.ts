@@ -119,6 +119,30 @@ export class HarmonicaClient {
     });
   }
 
+  async createSession(params: {
+    topic: string;
+    goal: string;
+    context?: string;
+    critical?: string;
+    prompt?: string;
+    template_id?: string;
+    cross_pollination?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      topic: string;
+      goal: string;
+      status: string;
+      participant_count: number;
+      created_at: string;
+      updated_at: string;
+      join_url: string;
+    }>('/sessions', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
   async getSessionSummary(sessionId: string) {
     return this.request<{
       session_id: string;
