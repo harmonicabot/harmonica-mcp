@@ -70,7 +70,7 @@ Then use `node /path/to/harmonica-mcp/dist/index.js` instead of `npx -y harmonic
 
 ## See Also
 
-- **[harmonica-chat](https://github.com/zhiganov/harmonica-chat)** — Claude Code slash command for quick session creation (`/create-session`)
+- **[harmonica-chat](https://github.com/harmonicabot/harmonica-chat)** — Conversational Harmonica companion for Claude Code — design, create, and manage sessions (`/harmonica-chat`)
 - **[Harmonica docs](https://help.harmonica.chat)** — Full platform documentation and API reference
 
 ## License
