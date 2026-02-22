@@ -71,7 +71,7 @@ server.tool(
 
 server.tool(
   'get_responses',
-  'Get participant responses for a Harmonica session',
+  'Get participant responses for a Harmonica session. Returns structured data with participant IDs, message IDs, timestamps, and full conversation threads (both user and assistant messages).',
   {
     session_id: z.string().describe('Session ID (UUID)'),
   },
@@ -81,16 +81,25 @@ server.tool(
       return { content: [{ type: 'text', text: 'No responses yet.' }] };
     }
 
-    const sections = result.data.map((p) => {
-      const name = p.participant_name || 'Anonymous';
-      const msgs = p.messages
-        .filter((m) => m.role === 'user')
-        .map((m) => `  > ${m.content}`)
-        .join('\n');
-      return `**${name}:**\n${msgs || '  (no responses)'}`;
-    });
+    const structured = result.data.map((p) => ({
+      participant_id: p.participant_id,
+      display_name: p.participant_name || 'Anonymous',
+      active: p.active,
+      message_count: p.messages.filter((m) => m.role === 'user').length,
+      messages: p.messages.map((m) => ({
+        message_id: m.id,
+        role: m.role,
+        content: m.content,
+        created_at: m.created_at,
+      })),
+    }));
 
-    return { content: [{ type: 'text', text: sections.join('\n\n') }] };
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({ participants: structured }, null, 2),
+      }],
+    };
   },
 );
 

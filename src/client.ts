@@ -97,8 +97,11 @@ export class HarmonicaClient {
   async getSessionResponses(sessionId: string) {
     return this.request<{
       data: Array<{
+        participant_id: string;
         participant_name: string | null;
+        active: boolean;
         messages: Array<{
+          id: string;
           role: 'user' | 'assistant';
           content: string;
           created_at: string;
