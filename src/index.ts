@@ -66,6 +66,7 @@ server.tool(
       `Goal: ${s.goal}`,
       s.critical ? `Critical: ${s.critical}` : null,
       s.context ? `Context: ${s.context}` : null,
+      s.prompt ? `\nFacilitation Prompt:\n${s.prompt}` : null,
       s.summary ? `\nSummary:\n${s.summary}` : null,
       `\nCreated: ${s.created_at}`,
     ]
@@ -197,6 +198,43 @@ server.tool(
       ``,
       `Share the join URL with participants to start the session.`,
     ].join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'update_session',
+  'Update session metadata (topic, goal, context, critical, prompt). Requires editor role.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+    topic: z.string().optional().describe('Updated session topic'),
+    goal: z.string().optional().describe('Updated session goal'),
+    context: z.string().optional().describe('Updated background context'),
+    critical: z.string().optional().describe('Updated critical question or constraint'),
+    prompt: z.string().optional().describe('Updated custom facilitation prompt'),
+  },
+  async ({ session_id, ...updates }) => {
+    // Filter out undefined values
+    const fields = Object.fromEntries(
+      Object.entries(updates).filter(([, v]) => v !== undefined),
+    );
+
+    if (Object.keys(fields).length === 0) {
+      return { content: [{ type: 'text', text: 'Error: No fields provided to update.' }] };
+    }
+
+    const updated = await client.updateSession(session_id, fields);
+    const text = [
+      `Session updated!`,
+      ``,
+      `  Topic:    ${updated.topic}`,
+      `  Goal:     ${updated.goal}`,
+      `  Status:   ${updated.status}`,
+      updated.prompt ? `  Prompt:   ${updated.prompt.substring(0, 100)}${updated.prompt.length > 100 ? '...' : ''}` : null,
+      ``,
+    ]
+      .filter(Boolean)
+      .join('\n');
     return { content: [{ type: 'text', text }] };
   },
 );

@@ -80,6 +80,7 @@ export class HarmonicaClient {
       goal: string;
       critical: string | null;
       context: string | null;
+      prompt: string | null;
       status: string;
       summary: string | null;
       participant_count: number;
@@ -142,6 +143,32 @@ export class HarmonicaClient {
       join_url: string;
     }>('/sessions', {
       method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async updateSession(id: string, params: {
+    topic?: string;
+    goal?: string;
+    context?: string;
+    critical?: string;
+    prompt?: string;
+  }) {
+    return this.request<{
+      id: string;
+      topic: string;
+      goal: string;
+      critical: string | null;
+      context: string | null;
+      prompt: string | null;
+      status: string;
+      summary: string | null;
+      session_md: string | null;
+      participant_count: number;
+      created_at: string;
+      updated_at: string;
+    }>(`/sessions/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(params),
     });
   }
