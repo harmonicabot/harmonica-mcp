@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MCP (Model Context Protocol) server for Harmonica, enabling AI agents to access and query Harmonica deliberation sessions programmatically.
+MCP (Model Context Protocol) server for Harmonica, enabling AI agents to create and query Harmonica sessions programmatically. Published to npm as `harmonica-mcp`.
 
 ## Commands
 
@@ -12,6 +12,17 @@ MCP (Model Context Protocol) server for Harmonica, enabling AI agents to access 
 npm run build   # Compile TypeScript → dist/
 npm run dev     # Watch mode compilation
 npm start       # Run the MCP server (requires HARMONICA_API_KEY env var)
+```
+
+No test suite. No linter configured.
+
+## Publishing
+
+Published to npm (`harmonica-mcp`). Users install via `npx -y harmonica-mcp`.
+
+```bash
+npm version patch|minor|major   # Bump version in package.json
+npm publish                     # Runs prepublishOnly → build → publish
 ```
 
 ## Architecture
@@ -26,17 +37,13 @@ Harmonica API (app.harmonica.chat/api/v1)
 Neon Postgres
 ```
 
-This is a **client** of the Harmonica REST API (`/api/v1/`), which lives in `harmonica-web-app/`.
+This is a **client** of the Harmonica REST API (`/api/v1/`), which lives in `harmonica-web-app/`. ESM module (`"type": "module"` in package.json).
 
-## Project Structure
+Two source files:
+- `src/index.ts` — MCP server entry point. Registers tools with zod schemas, starts stdio transport.
+- `src/client.ts` — HTTP client wrapping the Harmonica REST API. All methods throw on HTTP errors.
 
-```
-src/
-  index.ts    # MCP server entry point — registers tools, starts stdio transport
-  client.ts   # HTTP client for Harmonica REST API v1
-```
-
-## MCP Tools
+## MCP Tools (exposed in index.ts)
 
 | Tool | Description |
 |------|-------------|
@@ -47,30 +54,24 @@ src/
 | `get_summary` | Get AI-generated session summary |
 | `search_sessions` | Search sessions by topic/goal keywords |
 
+## Client methods NOT yet exposed as tools
+
+`client.ts` has additional methods with no corresponding MCP tool:
+- `getMe()` — current user info
+- `getSessionQuestions(sessionId)` — session questions
+- `submitResponse(sessionId, content)` — submit a response
+
+## Versioning
+
+The McpServer version is read from `package.json` at startup. Bump with `npm version patch|minor|major` — no other file to update.
+
 ## Environment Variables
 
 - `HARMONICA_API_KEY` (required) — API key from Harmonica dashboard
 - `HARMONICA_API_URL` (optional) — API base URL, defaults to `https://app.harmonica.chat`
 
-## Configuration
-
-Add to Claude Code config (`~/.claude.json` or project `.claude/settings.json`):
-
-```json
-{
-  "mcpServers": {
-    "harmonica": {
-      "command": "node",
-      "args": ["/path/to/harmonica-mcp/dist/index.js"],
-      "env": {
-        "HARMONICA_API_KEY": "hm_live_..."
-      }
-    }
-  }
-}
-```
-
 ## Related Projects
 
-- `harmonica-web-app/` — Main Harmonica platform (API source)
-- `avatar-sdk/` — CAP protocol (similar MCP patterns)
+- `harmonica-web-app/` — Main Harmonica platform (API source, defines `/api/v1/` endpoints)
+- `harmonica-chat/` — Claude Code slash command for session creation (uses this MCP server)
+- `harmonica-sync/` — CLI tool to sync sessions to markdown (uses the same REST API)

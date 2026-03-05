@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { HarmonicaClient } from './client.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
 
 const HARMONICA_API_URL = process.env.HARMONICA_API_URL || 'https://app.harmonica.chat';
 const HARMONICA_API_KEY = process.env.HARMONICA_API_KEY;
@@ -21,7 +27,7 @@ const client = new HarmonicaClient({
 
 const server = new McpServer({
   name: 'harmonica',
-  version: '0.1.0',
+  version: pkg.version,
 });
 
 // ─── Tools ───────────────────────────────────────────────────────────
@@ -134,6 +140,27 @@ server.tool(
     );
     return {
       content: [{ type: 'text', text: `Found ${result.pagination.total} sessions:\n\n${lines.join('\n')}` }],
+    };
+  },
+);
+
+server.tool(
+  'get_questions',
+  'Get pre-session questions (data collection form) for a Harmonica session',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+  },
+  async ({ session_id }) => {
+    const result = await client.getSessionQuestions(session_id);
+    if (!result.data.length) {
+      return { content: [{ type: 'text', text: 'No pre-session questions configured.' }] };
+    }
+
+    const lines = result.data.map(
+      (q, i) => `${i + 1}. ${q.text}`,
+    );
+    return {
+      content: [{ type: 'text', text: `${result.data.length} pre-session questions:\n\n${lines.join('\n')}` }],
     };
   },
 );
