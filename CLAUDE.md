@@ -48,18 +48,21 @@ Two source files:
 | Tool | Description |
 |------|-------------|
 | `create_session` | Create a new session and get a shareable join URL |
+| `update_session` | Update session metadata (topic, goal, context, critical, prompt) |
 | `list_sessions` | List sessions with optional status filter and search |
-| `get_session` | Get full session details by ID |
+| `get_session` | Get full session details including facilitation prompt |
+| `get_questions` | Get pre-session questions (data collection form) |
 | `get_responses` | Get participant responses for a session |
 | `get_summary` | Get AI-generated session summary |
 | `search_sessions` | Search sessions by topic/goal keywords |
+| `chat_message` | Send a message in a session conversation and get facilitator response |
+| `submit_questions` | Submit pre-session question answers and start facilitated conversation |
 
 ## Client methods NOT yet exposed as tools
 
 `client.ts` has additional methods with no corresponding MCP tool:
 - `getMe()` — current user info
-- `getSessionQuestions(sessionId)` — session questions
-- `submitResponse(sessionId, content)` — submit a response
+- `submitResponse(sessionId, content)` — submit a response (non-conversational)
 
 ## Versioning
 
