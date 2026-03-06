@@ -177,8 +177,12 @@ server.tool(
     prompt: z.string().optional().describe('Custom facilitation prompt'),
     template_id: z.string().optional().describe('Template ID to use'),
     cross_pollination: z.boolean().optional().describe('Enable idea sharing between participant threads'),
+    distribution: z.array(z.object({
+      channel: z.string().describe('Distribution channel (e.g. "telegram")'),
+      group_id: z.string().describe('Target group identifier'),
+    })).optional().describe('Distribution targets for channel integrations'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination }) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, distribution }) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -187,6 +191,7 @@ server.tool(
       prompt,
       template_id,
       cross_pollination,
+      distribution,
     });
     const text = [
       `Session created!`,
@@ -235,6 +240,42 @@ server.tool(
     ]
       .filter(Boolean)
       .join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'chat_message',
+  'Send a message in a Harmonica session conversation and get the AI facilitator response. Creates a new participant thread if first message.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+    content: z.string().describe('Message content'),
+    participant_id: z.string().describe('Unique participant identifier'),
+    participant_name: z.string().describe('Display name for the participant'),
+  },
+  async ({ session_id, content, participant_id, participant_name }) => {
+    const result = await client.chat(session_id, { content, participant_id, participant_name });
+    const finalNote = result.message.is_final ? '\n\n[Session complete for this participant]' : '';
+    const text = `**Facilitator:** ${result.message.content}${finalNote}\n\nThread ID: ${result.thread_id}`;
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'submit_questions',
+  'Submit pre-session question answers and start a facilitated conversation. Returns the opening facilitator message.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+    participant_id: z.string().describe('Unique participant identifier'),
+    participant_name: z.string().describe('Display name for the participant'),
+    answers: z.array(z.object({
+      question_id: z.string().describe('Question ID'),
+      answer: z.string().describe('Answer text'),
+    })).describe('Array of question answers'),
+  },
+  async ({ session_id, participant_id, participant_name, answers }) => {
+    const result = await client.chatQuestions(session_id, { participant_id, participant_name, answers });
+    const text = `**Facilitator:** ${result.message.content}\n\nThread ID: ${result.thread_id}`;
     return { content: [{ type: 'text', text }] };
   },
 );

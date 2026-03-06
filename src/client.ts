@@ -123,6 +123,34 @@ export class HarmonicaClient {
     });
   }
 
+  async chat(sessionId: string, body: {
+    content: string;
+    participant_id: string;
+    participant_name: string;
+  }) {
+    return this.request<{
+      message: { role: 'assistant'; content: string; is_final: boolean };
+      thread_id: string;
+    }>(`/sessions/${sessionId}/chat`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async chatQuestions(sessionId: string, body: {
+    participant_id: string;
+    participant_name: string;
+    answers: Array<{ question_id: string; answer: string }>;
+  }) {
+    return this.request<{
+      message: { role: 'assistant'; content: string; is_final: boolean };
+      thread_id: string;
+    }>(`/sessions/${sessionId}/chat/questions`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   async createSession(params: {
     topic: string;
     goal: string;
@@ -131,6 +159,7 @@ export class HarmonicaClient {
     prompt?: string;
     template_id?: string;
     cross_pollination?: boolean;
+    distribution?: Array<{ channel: string; group_id: string }>;
   }) {
     return this.request<{
       id: string;
