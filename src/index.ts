@@ -245,6 +245,40 @@ server.tool(
 );
 
 server.tool(
+  'list_telegram_groups',
+  'List Telegram groups registered to your Harmonica account for session distribution',
+  {},
+  async () => {
+    const groups = await client.listTelegramGroups();
+
+    if (groups.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'No Telegram groups registered. Add the Harmonica bot to a Telegram group and run /setup to register it.',
+          },
+        ],
+      };
+    }
+
+    const lines = groups.map(
+      (g) =>
+        `- ${g.group_name ?? 'Unnamed group'} (ID: ${g.group_id})${g.topic_id ? ` [forum topic: ${g.topic_id}]` : ''}`,
+    );
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Your Telegram groups:\n\n${lines.join('\n')}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
   'chat_message',
   'Send a message in a Harmonica session conversation and get the AI facilitator response. Creates a new participant thread if first message.',
   {

@@ -202,6 +202,25 @@ export class HarmonicaClient {
     });
   }
 
+  async listTelegramGroups(): Promise<
+    Array<{
+      group_id: string;
+      group_name: string | null;
+      topic_id: number | null;
+      created_at: string;
+    }>
+  > {
+    const res = await this.request<{
+      data: Array<{
+        group_id: string;
+        group_name: string | null;
+        topic_id: number | null;
+        created_at: string;
+      }>;
+    }>('/integrations/telegram/groups');
+    return res.data;
+  }
+
   async getSessionSummary(sessionId: string) {
     return this.request<{
       session_id: string;
