@@ -160,6 +160,7 @@ export class HarmonicaClient {
     template_id?: string;
     cross_pollination?: boolean;
     distribution?: Array<{ channel: string; group_id: string }>;
+    questions?: Array<{ text: string }>;
   }) {
     return this.request<{
       id: string;

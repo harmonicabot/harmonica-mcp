@@ -181,8 +181,11 @@ server.tool(
       channel: z.string().describe('Distribution channel (e.g. "telegram")'),
       group_id: z.string().describe('Target group identifier'),
     })).optional().describe('Distribution targets for channel integrations'),
+    questions: z.array(z.object({
+      text: z.string().describe('Question text shown to participants before the session starts'),
+    })).optional().describe('Pre-session questions (e.g. name, role). Participants answer these before chatting.'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, distribution }) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, distribution, questions }) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -192,6 +195,7 @@ server.tool(
       template_id,
       cross_pollination,
       distribution,
+      questions,
     });
     const text = [
       `Session created!`,
