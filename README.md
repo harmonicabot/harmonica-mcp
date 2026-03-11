@@ -44,7 +44,7 @@ Share the join URL with participants. Once they've responded, use `get_responses
 
 | Tool | Description |
 |------|-------------|
-| `create_session` | Create a new deliberation session and get a shareable join URL |
+| `create_session` | Create a new deliberation session and get a shareable join URL (optional: `questions`) |
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt) |
 | `list_sessions` | List your deliberation sessions (filter by status, search) |
 | `get_session` | Get full session details (includes facilitation prompt) |
@@ -52,6 +52,7 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `get_responses` | Get participant responses |
 | `get_summary` | Get AI-generated summary |
 | `search_sessions` | Search by topic or goal |
+| `list_telegram_groups` | List Telegram groups registered to the user's account (no parameters) |
 
 ## From Source
 
