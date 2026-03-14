@@ -19,22 +19,35 @@ export class HarmonicaClient {
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}/api/v1${path}`;
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+    const maxRetries = 3;
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message = body?.error?.message || `HTTP ${res.status}`;
-      throw new Error(`Harmonica API error: ${message}`);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+
+      if (res.status === 429 && attempt < maxRetries - 1) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '5', 10);
+        const waitMs = (retryAfter + 1) * 1000; // +1s buffer
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const message = body?.error?.message || `HTTP ${res.status}`;
+        throw new Error(`Harmonica API error ${res.status}: ${message}`);
+      }
+
+      return res.json() as Promise<T>;
     }
 
-    return res.json() as Promise<T>;
+    throw new Error('Harmonica API error: max retries exceeded');
   }
 
   async getMe() {
