@@ -213,7 +213,7 @@ server.tool(
 
 server.tool(
   'update_session',
-  'Update session metadata (topic, goal, context, critical, prompt). Requires editor role.',
+  'Update session metadata (topic, goal, context, critical, prompt, cross_pollination, distribution). Requires editor role.',
   {
     session_id: z.string().describe('Session ID (UUID)'),
     topic: z.string().optional().describe('Updated session topic'),
@@ -221,6 +221,11 @@ server.tool(
     context: z.string().optional().describe('Updated background context'),
     critical: z.string().optional().describe('Updated critical question or constraint'),
     prompt: z.string().optional().describe('Updated custom facilitation prompt'),
+    cross_pollination: z.boolean().optional().describe('Enable/disable idea sharing between participant threads'),
+    distribution: z.array(z.object({
+      channel: z.string().describe('Distribution channel (e.g. "telegram")'),
+      group_id: z.string().describe('Target group identifier'),
+    })).optional().describe('Distribution targets for channel integrations'),
   },
   async ({ session_id, ...updates }) => {
     // Filter out undefined values

@@ -196,6 +196,8 @@ export class HarmonicaClient {
     context?: string;
     critical?: string;
     prompt?: string;
+    cross_pollination?: boolean;
+    distribution?: Array<{ channel: string; group_id: string }>;
   }) {
     return this.request<{
       id: string;
