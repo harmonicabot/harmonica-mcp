@@ -213,7 +213,7 @@ server.tool(
 
 server.tool(
   'update_session',
-  'Update session metadata (topic, goal, context, critical, prompt, cross_pollination, distribution). Requires editor role.',
+  'Update session metadata (topic, goal, context, critical, prompt, summary_prompt, cross_pollination, distribution). Requires editor role.',
   {
     session_id: z.string().describe('Session ID (UUID)'),
     topic: z.string().optional().describe('Updated session topic'),
@@ -221,6 +221,7 @@ server.tool(
     context: z.string().optional().describe('Updated background context'),
     critical: z.string().optional().describe('Updated critical question or constraint'),
     prompt: z.string().optional().describe('Updated custom facilitation prompt'),
+    summary_prompt: z.string().optional().describe('Updated custom summarization prompt'),
     cross_pollination: z.boolean().optional().describe('Enable/disable idea sharing between participant threads'),
     distribution: z.array(z.object({
       channel: z.string().describe('Distribution channel (e.g. "telegram")'),
