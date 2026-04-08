@@ -245,4 +245,14 @@ export class HarmonicaClient {
       generated_at: string | null;
     }>(`/sessions/${sessionId}/summary`);
   }
+
+  async generateSummary(sessionId: string) {
+    return this.request<{
+      session_id: string;
+      summary: string | null;
+      generated_at: string | null;
+    }>(`/sessions/${sessionId}/summary`, {
+      method: 'POST',
+    });
+  }
 }

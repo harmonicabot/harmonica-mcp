@@ -124,6 +124,20 @@ server.tool(
 );
 
 server.tool(
+  'generate_summary',
+  'Generate or regenerate the AI summary for a Harmonica session. Uses the session\'s custom summary_prompt if set, otherwise the default. Requires editor role.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+  },
+  async ({ session_id }) => {
+    const result = await client.generateSummary(session_id);
+    const summary = result.summary || 'Summary generation returned no content.';
+    const text = `Summary generated for session ${result.session_id} (${result.generated_at}):\n\n${summary}`;
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
   'search_sessions',
   'Search Harmonica sessions by topic or goal keywords',
   {
