@@ -77,23 +77,66 @@ server.tool(
 );
 
 server.tool(
-  'get_responses',
-  'Get participant responses for a Harmonica session. Returns structured data with participant IDs, message IDs, timestamps, and full conversation threads (both user and assistant messages).',
+  'list_participants',
+  'List participants in a Harmonica session with metadata (name, message count, timestamps) but WITHOUT full conversations. Use this first to find participants, then get_responses with filters for specific ones.',
   {
     session_id: z.string().describe('Session ID (UUID)'),
+    since: z.string().optional().describe('Only participants who joined after this ISO date'),
+    name: z.string().optional().describe('Filter by participant name (partial match)'),
+    min_messages: z.number().optional().describe('Minimum user message count (skip bounces)'),
+    sort: z.enum(['newest', 'oldest']).optional().describe('Sort by join date (default: oldest)'),
   },
-  async ({ session_id }) => {
-    const result = await client.getSessionResponses(session_id);
+  async ({ session_id, since, name, min_messages, sort }) => {
+    const result = await client.getSessionResponses(session_id, {
+      mode: 'list',
+      since,
+      name,
+      min_messages,
+      sort,
+    });
     if (!result.data.length) {
-      return { content: [{ type: 'text', text: 'No responses yet.' }] };
+      return { content: [{ type: 'text', text: 'No participants found.' }] };
+    }
+
+    const lines = result.data.map(
+      (p) => `- **${p.participant_name || 'Anonymous'}** (${p.message_count} msgs, joined ${p.first_message_at || 'unknown'}) — ID: ${p.participant_id}`,
+    );
+    return {
+      content: [{ type: 'text', text: `${result.data.length} participants:\n\n${lines.join('\n')}` }],
+    };
+  },
+);
+
+server.tool(
+  'get_responses',
+  'Get participant responses for a Harmonica session. Returns full conversation threads. Use filters to avoid fetching all data at once for large sessions.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+    since: z.string().optional().describe('Only participants who joined after this ISO date'),
+    name: z.string().optional().describe('Filter by participant name (partial match)'),
+    min_messages: z.number().optional().describe('Minimum user message count (skip bounces)'),
+    limit: z.number().optional().describe('Max number of participants to return'),
+    sort: z.enum(['newest', 'oldest']).optional().describe('Sort by join date (default: oldest)'),
+  },
+  async ({ session_id, since, name, min_messages, limit, sort }) => {
+    const result = await client.getSessionResponses(session_id, {
+      since,
+      name,
+      min_messages,
+      limit,
+      sort,
+    });
+    if (!result.data.length) {
+      return { content: [{ type: 'text', text: 'No responses found.' }] };
     }
 
     const structured = result.data.map((p) => ({
       participant_id: p.participant_id,
       display_name: p.participant_name || 'Anonymous',
       active: p.active,
-      message_count: p.messages.filter((m) => m.role === 'user').length,
-      messages: p.messages.map((m) => ({
+      message_count: p.message_count ?? p.messages?.filter((m) => m.role === 'user').length ?? 0,
+      first_message_at: p.first_message_at,
+      messages: p.messages?.map((m) => ({
         message_id: m.id,
         role: m.role,
         content: m.content,

@@ -108,20 +108,39 @@ export class HarmonicaClient {
     }>(`/sessions/${sessionId}/questions`);
   }
 
-  async getSessionResponses(sessionId: string) {
+  async getSessionResponses(sessionId: string, params?: {
+    mode?: 'list';
+    since?: string;
+    name?: string;
+    min_messages?: number;
+    limit?: number;
+    sort?: 'newest' | 'oldest';
+  }) {
+    const query = new URLSearchParams();
+    if (params?.mode) query.set('mode', params.mode);
+    if (params?.since) query.set('since', params.since);
+    if (params?.name) query.set('name', params.name);
+    if (params?.min_messages) query.set('min_messages', String(params.min_messages));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.sort) query.set('sort', params.sort);
+    const qs = query.toString();
+
     return this.request<{
       data: Array<{
         participant_id: string;
         participant_name: string | null;
         active: boolean;
-        messages: Array<{
+        message_count?: number;
+        first_message_at?: string | null;
+        last_message_at?: string | null;
+        messages?: Array<{
           id: string;
           role: 'user' | 'assistant';
           content: string;
           created_at: string;
         }>;
       }>;
-    }>(`/sessions/${sessionId}/responses`);
+    }>(`/sessions/${sessionId}/responses${qs ? `?${qs}` : ''}`);
   }
 
   async submitResponse(sessionId: string, content: string) {
