@@ -64,6 +64,11 @@ Two source files:
 - `getMe()` — current user info
 - `submitResponse(sessionId, content)` — submit a response (non-conversational)
 
+## API endpoints NOT yet in client
+
+These API endpoints exist but have no client method or MCP tool yet:
+- `POST /sessions/{id}/scratchpad` — seed/update cross-pollination scratchpad (HAR-663 items 2-3). Supports `mode: seed | update | status`. See API docs.
+
 ## Versioning
 
 The McpServer version is read from `package.json` at startup. Bump with `npm version patch|minor|major` — no other file to update.
