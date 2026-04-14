@@ -51,10 +51,13 @@ Two source files:
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt) |
 | `list_sessions` | List sessions with optional status filter and search |
 | `get_session` | Get full session details including facilitation prompt |
+| `list_participants` | List participants for a session |
 | `get_questions` | Get pre-session questions (data collection form) |
 | `get_responses` | Get participant responses for a session |
 | `get_summary` | Get AI-generated session summary |
+| `generate_summary` | Trigger summary generation on demand |
 | `search_sessions` | Search sessions by topic/goal keywords |
+| `list_telegram_groups` | List Telegram groups registered to the user's account |
 | `chat_message` | Send a message in a session conversation and get facilitator response |
 | `submit_questions` | Submit pre-session question answers and start facilitated conversation |
 
