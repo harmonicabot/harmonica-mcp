@@ -71,6 +71,14 @@ Then use `node /path/to/harmonica-mcp/dist/index.js` instead of `npx -y harmonic
 | `HARMONICA_API_KEY` | Yes | — | Your Harmonica API key |
 | `HARMONICA_API_URL` | No | `https://app.harmonica.chat` | API base URL |
 
+## Roadmap
+
+- [ ] One-command install via `npx add-mcp` (auto-detects Claude Code, Cursor, Windsurf)
+- [ ] HTTP transport — zero-install setup, just add a URL
+- [ ] Inbound context — feed external data into sessions via MCP
+- [ ] Session templates discovery tool
+- [ ] TypeScript and Python client SDKs
+
 ## See Also
 
 - **[harmonica-chat](https://github.com/harmonicabot/harmonica-chat)** — Conversational Harmonica companion for Claude Code — design, create, and manage sessions (`/harmonica-chat`)
