@@ -192,6 +192,7 @@ export class HarmonicaClient {
     template_id?: string;
     cross_pollination?: boolean;
     widgets_enabled?: boolean;
+    results_visibility?: 'public' | 'participants' | 'host';
     distribution?: Array<{ channel: string; group_id: string }>;
     questions?: Array<{ text: string }>;
   }) {

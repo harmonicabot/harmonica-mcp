@@ -235,6 +235,7 @@ server.tool(
     template_id: z.string().optional().describe('Template ID to use'),
     cross_pollination: z.boolean().optional().describe('Enable idea sharing between participant threads'),
     widgets_enabled: z.boolean().optional().describe('Enable AI-emitted Polls and ratings widgets (SingleSelect, MultiSelect, RatingScale, RankingList) during the session. Default false.'),
+    results_visibility: z.enum(['public', 'participants', 'host']).optional().describe('Who can see aggregated results. "host" = owner only; "participants" = anyone who completed (drives end-of-chat "See what others said" link); "public" = anyone with the URL. Defaults to "participants" for MCP-created sessions (programmatic use case usually wants distributed visibility); pass "host" explicitly to keep results private.'),
     distribution: z.array(z.object({
       channel: z.string().describe('Distribution channel (e.g. "telegram")'),
       group_id: z.string().describe('Target group identifier'),
@@ -243,7 +244,7 @@ server.tool(
       text: z.string().describe('Question text shown to participants before the session starts'),
     })).optional().describe('Pre-session questions (e.g. name, role). Participants answer these before chatting.'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, distribution, questions }) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, distribution, questions }) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -253,6 +254,11 @@ server.tool(
       template_id,
       cross_pollination,
       widgets_enabled,
+      // HAR-905 — MCP-created sessions default to 'participants' so the
+      // HAR-858 end-of-chat results link is visible by default. The v1 API
+      // itself still defaults to 'host' for backwards compat; this is the
+      // MCP-layer opinionated default. Caller can override explicitly.
+      results_visibility: results_visibility ?? 'participants',
       distribution,
       questions,
     });
