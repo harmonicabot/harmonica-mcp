@@ -234,6 +234,7 @@ server.tool(
     prompt: z.string().optional().describe('Custom facilitation prompt'),
     template_id: z.string().optional().describe('Template ID to use'),
     cross_pollination: z.boolean().optional().describe('Enable idea sharing between participant threads'),
+    widgets_enabled: z.boolean().optional().describe('Enable AI-emitted Polls and ratings widgets (SingleSelect, MultiSelect, RatingScale, RankingList) during the session. Default false.'),
     distribution: z.array(z.object({
       channel: z.string().describe('Distribution channel (e.g. "telegram")'),
       group_id: z.string().describe('Target group identifier'),
@@ -242,7 +243,7 @@ server.tool(
       text: z.string().describe('Question text shown to participants before the session starts'),
     })).optional().describe('Pre-session questions (e.g. name, role). Participants answer these before chatting.'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, distribution, questions }) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, distribution, questions }) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -251,6 +252,7 @@ server.tool(
       prompt,
       template_id,
       cross_pollination,
+      widgets_enabled,
       distribution,
       questions,
     });

@@ -191,6 +191,7 @@ export class HarmonicaClient {
     prompt?: string;
     template_id?: string;
     cross_pollination?: boolean;
+    widgets_enabled?: boolean;
     distribution?: Array<{ channel: string; group_id: string }>;
     questions?: Array<{ text: string }>;
   }) {

@@ -1,6 +1,6 @@
 {
   "name": "harmonica-mcp",
-  "version": "0.4.7",
+  "version": "0.5.0",
   "description": "MCP server for Harmonica deliberation sessions",
   "license": "MIT",
   "type": "module",
