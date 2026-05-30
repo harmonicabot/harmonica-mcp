@@ -194,7 +194,12 @@ export class HarmonicaClient {
     widgets_enabled?: boolean;
     results_visibility?: 'public' | 'participants' | 'host';
     distribution?: Array<{ channel: string; group_id: string }>;
-    questions?: Array<{ text: string }>;
+    questions?: Array<{
+      text: string;
+      type?: 'Short field' | 'Email' | 'Options';
+      required?: boolean;
+      options?: string[];
+    }>;
   }) {
     return this.request<{
       id: string;
@@ -219,6 +224,14 @@ export class HarmonicaClient {
     prompt?: string;
     summary_prompt?: string;
     cross_pollination?: boolean;
+    widgets_enabled?: boolean;
+    results_visibility?: 'public' | 'participants' | 'host';
+    questions?: Array<{
+      text: string;
+      type?: 'Short field' | 'Email' | 'Options';
+      required?: boolean;
+      options?: string[];
+    }>;
     distribution?: Array<{ channel: string; group_id: string }>;
   }) {
     return this.request<{

@@ -242,7 +242,10 @@ server.tool(
     })).optional().describe('Distribution targets for channel integrations'),
     questions: z.array(z.object({
       text: z.string().describe('Question text shown to participants before the session starts'),
-    })).optional().describe('Pre-session questions (e.g. name, role). Participants answer these before chatting.'),
+      type: z.enum(['Short field', 'Email', 'Options']).optional().describe('Field type. Defaults to "Short field". Use "Email" for email validation; "Options" for a multi-choice select (also pass `options`).'),
+      required: z.boolean().optional().describe('Whether the field is required. Defaults to false.'),
+      options: z.array(z.string()).optional().describe('Choices when `type` is "Options".'),
+    })).optional().describe('Pre-session questions (e.g. name, role, email). Participants answer these before chatting. Pass `type: "Email"` and `required: true` to validate contact details up front.'),
   },
   async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, distribution, questions }) => {
     const session = await client.createSession({
@@ -278,7 +281,7 @@ server.tool(
 
 server.tool(
   'update_session',
-  'Update session metadata (topic, goal, context, critical, prompt, summary_prompt, cross_pollination, distribution). Requires editor role.',
+  'Update session metadata (topic, goal, context, critical, prompt, summary_prompt, cross_pollination, widgets_enabled, results_visibility, questions, distribution). Requires editor role.',
   {
     session_id: z.string().describe('Session ID (UUID)'),
     topic: z.string().optional().describe('Updated session topic'),
@@ -288,6 +291,14 @@ server.tool(
     prompt: z.string().optional().describe('Updated custom facilitation prompt'),
     summary_prompt: z.string().optional().describe('Updated custom summarization prompt'),
     cross_pollination: z.boolean().optional().describe('Enable/disable idea sharing between participant threads'),
+    widgets_enabled: z.boolean().optional().describe('Enable AI-emitted Polls and ratings widgets (SingleSelect, MultiSelect, RatingScale, RankingList). Default false.'),
+    results_visibility: z.enum(['public', 'participants', 'host']).optional().describe('Who can see aggregated results. "host" = owner only; "participants" = anyone who completed; "public" = anyone with the URL.'),
+    questions: z.array(z.object({
+      text: z.string().describe('Question text shown to participants before the session starts'),
+      type: z.enum(['Short field', 'Email', 'Options']).optional().describe('Field type. Defaults to "Short field".'),
+      required: z.boolean().optional().describe('Whether the field is required.'),
+      options: z.array(z.string()).optional().describe('Choices when `type` is "Options".'),
+    })).optional().describe('Pre-session questions. Replaces the existing pre-survey wholesale.'),
     distribution: z.array(z.object({
       channel: z.string().describe('Distribution channel (e.g. "telegram")'),
       group_id: z.string().describe('Target group identifier'),
