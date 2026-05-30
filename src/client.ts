@@ -223,9 +223,21 @@ export class HarmonicaClient {
     critical?: string;
     prompt?: string;
     summary_prompt?: string;
+    prompt_summary?: string;
+    prompt_generated_from?: {
+      topic: string;
+      goal: string;
+      critical: string;
+      context: string;
+    } | null;
     cross_pollination?: boolean;
     widgets_enabled?: boolean;
     results_visibility?: 'public' | 'participants' | 'host';
+    welcome_message?: string;
+    meta_description?: string;
+    intro_video_url?: string | null;
+    template_id?: string | null;
+    platform_guidelines_override?: string | null;
     questions?: Array<{
       text: string;
       type?: 'Short field' | 'Email' | 'Options';

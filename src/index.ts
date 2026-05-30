@@ -281,7 +281,7 @@ server.tool(
 
 server.tool(
   'update_session',
-  'Update session metadata (topic, goal, context, critical, prompt, summary_prompt, cross_pollination, widgets_enabled, results_visibility, questions, distribution). Requires editor role.',
+  'Update session metadata. Mirrors the v1 PATCH /api/v1/sessions/[id] ALLOWED_UPDATE_FIELDS surface. Requires editor role.',
   {
     session_id: z.string().describe('Session ID (UUID)'),
     topic: z.string().optional().describe('Updated session topic'),
@@ -290,9 +290,21 @@ server.tool(
     critical: z.string().optional().describe('Updated critical question or constraint'),
     prompt: z.string().optional().describe('Updated custom facilitation prompt'),
     summary_prompt: z.string().optional().describe('Updated custom summarization prompt'),
+    prompt_summary: z.string().optional().describe('Short summary of the facilitation prompt (HAR-859). Usually written together with `prompt` by the regenerate-facilitation-prompt flow; setting manually outside that flow can confuse the Brief-drift banner.'),
+    prompt_generated_from: z.object({
+      topic: z.string(),
+      goal: z.string(),
+      critical: z.string(),
+      context: z.string(),
+    }).nullable().optional().describe('Snapshot of the Brief fields that produced the current `prompt` (HAR-859). Brief-drift detection compares this against current topic/goal/critical/context.'),
     cross_pollination: z.boolean().optional().describe('Enable/disable idea sharing between participant threads'),
     widgets_enabled: z.boolean().optional().describe('Enable AI-emitted Polls and ratings widgets (SingleSelect, MultiSelect, RatingScale, RankingList). Default false.'),
     results_visibility: z.enum(['public', 'participants', 'host']).optional().describe('Who can see aggregated results. "host" = owner only; "participants" = anyone who completed; "public" = anyone with the URL.'),
+    welcome_message: z.string().optional().describe('Markdown welcome message shown on the session landing page before participants enter chat.'),
+    meta_description: z.string().optional().describe('Session-specific OG meta description for landing-page link previews.'),
+    intro_video_url: z.string().nullable().optional().describe('Optional intro video URL embedded on the session landing page. Pass `null` to clear.'),
+    template_id: z.string().nullable().optional().describe('Template id that backs this session. Editing without recomposing the prompt (POST /sessions/[id]/regenerate-facilitation-prompt) leaves prompt + template out of sync. Pass `null` to detach.'),
+    platform_guidelines_override: z.string().nullable().optional().describe('Per-session override of the Platform Guidelines block in the facilitation prompt (HAR-868). Pass `null` to fall back to the platform default.'),
     questions: z.array(z.object({
       text: z.string().describe('Question text shown to participants before the session starts'),
       type: z.enum(['Short field', 'Email', 'Options']).optional().describe('Field type. Defaults to "Short field".'),
