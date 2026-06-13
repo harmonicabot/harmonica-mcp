@@ -53,7 +53,10 @@ function extractStageBodies(body: string): Record<string, string> {
 }
 
 export function parseMethodSpec(md: string): MethodSpec {
-  const fmMatch = md.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  // Normalize line endings so CRLF-checked-out files still match the frontmatter
+  // fence and split cleanly.
+  const normalized = md.replace(/\r\n/g, '\n');
+  const fmMatch = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!fmMatch) {
     throw new Error('method.md is missing YAML frontmatter (--- … ---).');
   }
@@ -62,6 +65,9 @@ export function parseMethodSpec(md: string): MethodSpec {
     frontmatter = yaml.load(fmMatch[1]) as MethodSpecFrontmatter;
   } catch (e) {
     throw new Error(`Invalid YAML frontmatter: ${(e as Error).message}`);
+  }
+  if (!frontmatter || typeof frontmatter !== 'object') {
+    throw new Error('method.md frontmatter is empty or not a YAML object.');
   }
   const body = fmMatch[2];
   return { frontmatter, body, stageBodies: extractStageBodies(body) };

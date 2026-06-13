@@ -111,4 +111,27 @@ describe('toChainConfig', () => {
     const bad = SPEC.replace('roles: [a, b]', 'roles: [a, zzz]');
     expect(() => toChainConfig(parseMethodSpec(bad))).toThrow(/zzz/);
   });
+
+  it('passes an object-form completion through unchanged', () => {
+    const timer = SPEC.replace(
+      'completion: all_submitted, output: out1',
+      'completion: { type: timer, duration_seconds: 300 }, output: out1',
+    );
+    const out = toChainConfig(parseMethodSpec(timer));
+    expect(out.chain_config.steps[0].completion_criteria).toEqual({ type: 'timer', duration_seconds: 300 });
+  });
+});
+
+describe('parseMethodSpec — robustness', () => {
+  it('handles CRLF line endings', () => {
+    const crlf = MINIMAL.replace(/\n/g, '\r\n');
+    const spec = parseMethodSpec(crlf);
+    expect(spec.frontmatter.id).toBe('demo');
+    expect(Object.keys(spec.stageBodies)).toEqual(['one']);
+  });
+
+  it('throws a clean error on empty frontmatter', () => {
+    // Valid fence structure but an empty YAML body → yaml.load returns undefined.
+    expect(() => parseMethodSpec('---\n\n---\n')).toThrow(/empty or not a YAML object/i);
+  });
 });
