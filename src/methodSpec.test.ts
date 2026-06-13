@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseMethodSpec } from './methodSpec.js';
+import { parseMethodSpec, toChainConfig } from './methodSpec.js';
 
 const MINIMAL = `---
 id: demo
@@ -43,5 +43,72 @@ describe('parseMethodSpec', () => {
 
   it('throws when frontmatter is missing', () => {
     expect(() => parseMethodSpec('no frontmatter here')).toThrow(/frontmatter/i);
+  });
+});
+
+const SPEC = `---
+id: demo
+title: Demo Method
+summary: A demo.
+attribution: "Adapted from X, CC BY-NC 4.0"
+runtime:
+  reference: harmonica
+  artifact: chain
+lenses: [value, power]
+roles:
+  - { slug: a, label: Role A }
+  - { slug: b, label: Role B }
+stages:
+  - { id: one, title: Step One, roles: [a], assignment_strategy: all_participants, context_mode: none, completion: all_submitted, output: out1 }
+  - { id: two, title: Step Two, roles: [a, b], assignment_strategy: all_participants, context_mode: previous_summary, completion: all_submitted, output: out2 }
+---
+
+## Stage: one
+**Goal:** g1. prose1.
+
+## Stage: two
+**Goal:** g2. prose2.
+`;
+
+describe('toChainConfig', () => {
+  it('maps stages to chain_config steps in order', () => {
+    const out = toChainConfig(parseMethodSpec(SPEC));
+    expect(out.template_type).toBe('chain');
+    expect(out.title).toBe('Demo Method');
+    expect(out.chain_config.steps.map((s) => s.id)).toEqual(['one', 'two']);
+  });
+
+  it('expands role slugs to {slug,label}', () => {
+    const out = toChainConfig(parseMethodSpec(SPEC));
+    expect(out.chain_config.steps[1].roles).toEqual([
+      { slug: 'a', label: 'Role A' },
+      { slug: 'b', label: 'Role B' },
+    ]);
+  });
+
+  it('maps completion string to {type}', () => {
+    const out = toChainConfig(parseMethodSpec(SPEC));
+    expect(out.chain_config.steps[0].completion_criteria).toEqual({ type: 'all_submitted' });
+  });
+
+  it('prepends the lens line and includes the body in facilitation_prompt', () => {
+    const out = toChainConfig(parseMethodSpec(SPEC));
+    expect(out.chain_config.steps[0].facilitation_prompt).toMatch(/^Read every question through these lenses: value, power\./);
+    expect(out.chain_config.steps[0].facilitation_prompt).toContain('prose1');
+  });
+
+  it('composes description from summary + attribution', () => {
+    const out = toChainConfig(parseMethodSpec(SPEC));
+    expect(out.description).toBe('A demo.\n\nAdapted from X, CC BY-NC 4.0');
+  });
+
+  it('rejects a non-chain artifact', () => {
+    const single = SPEC.replace('artifact: chain', 'artifact: single');
+    expect(() => toChainConfig(parseMethodSpec(single))).toThrow(/only handles chain specs/i);
+  });
+
+  it('rejects an unknown role slug', () => {
+    const bad = SPEC.replace('roles: [a, b]', 'roles: [a, zzz]');
+    expect(() => toChainConfig(parseMethodSpec(bad))).toThrow(/zzz/);
   });
 });
