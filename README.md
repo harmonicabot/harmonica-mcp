@@ -53,6 +53,7 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `get_summary` | Get AI-generated summary |
 | `search_sessions` | Search by topic or goal |
 | `list_telegram_groups` | List Telegram groups registered to the user's account (no parameters) |
+| `install_method_spec` | Install an OFL method spec (method.md) as a runnable chain template |
 
 ## From Source
 

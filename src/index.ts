@@ -7,6 +7,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { HarmonicaClient } from './client.js';
+import { parseMethodSpec, toChainConfig } from './methodSpec.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -409,6 +410,80 @@ server.tool(
     const result = await client.chatQuestions(session_id, { participant_id, participant_name, answers });
     const text = `**Facilitator:** ${result.message.content}\n\nThread ID: ${result.thread_id}`;
     return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'install_method_spec',
+  'Install an OFL method spec (the contents of a method.md file) as a runnable Harmonica chain template. Pass the full method.md text as method_md. Use dry_run to preview the generated chain_config without writing anything. Chain templates need a paid (Pro/LTD) account; Free is capped at 3 steps.',
+  {
+    method_md: z.string().describe('Full contents of the method.md spec file (YAML frontmatter + body).'),
+    dry_run: z.boolean().optional().describe('If true, return the generated chain_config without creating a template. Default false.'),
+    template_id: z.string().optional().describe('Update this existing template (PATCH) instead of creating a new one.'),
+    update_if_exists: z.boolean().optional().describe('If no template_id, update an owned chain template with the same title instead of creating a duplicate. Default false.'),
+    is_public: z.boolean().optional().describe('Make the installed template public. Default false — drafts and CC-licensed specs should stay private.'),
+  },
+  async ({ method_md, dry_run, template_id, update_if_exists, is_public }) => {
+    let install;
+    try {
+      install = toChainConfig(parseMethodSpec(method_md));
+    } catch (e) {
+      return { content: [{ type: 'text', text: `Could not parse method spec: ${(e as Error).message}` }] };
+    }
+
+    const stepCount = install.chain_config.steps.length;
+
+    if (dry_run) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Dry run — "${install.title}" (${stepCount} steps). No template created.\n\nchain_config:\n${JSON.stringify(install.chain_config, null, 2)}`,
+        }],
+      };
+    }
+
+    const values = {
+      title: install.title,
+      description: install.description,
+      template_type: install.template_type,
+      chain_config: install.chain_config,
+      is_public: is_public ?? false,
+    };
+
+    try {
+      let result;
+      let action: 'Created' | 'Updated';
+
+      if (template_id) {
+        result = await client.updateTemplate(template_id, values);
+        action = 'Updated';
+      } else if (update_if_exists) {
+        const me = await client.getMe();
+        const existing = (await client.listTemplates()).data.find(
+          (t) => t.template_type === 'chain' && t.title === install.title && t.created_by === me.id,
+        );
+        if (existing) {
+          result = await client.updateTemplate(existing.id, values);
+          action = 'Updated';
+        } else {
+          result = await client.createTemplate(values);
+          action = 'Created';
+        }
+      } else {
+        result = await client.createTemplate(values);
+        action = 'Created';
+      }
+
+      const text = [
+        `${action} chain template "${result.title}"`,
+        `  Template ID: ${result.id}`,
+        `  Steps:       ${stepCount}`,
+        `  Visibility:  ${result.is_public ? 'public' : 'private'}`,
+      ].join('\n');
+      return { content: [{ type: 'text', text }] };
+    } catch (e) {
+      return { content: [{ type: 'text', text: `Install failed: ${(e as Error).message}` }] };
+    }
   },
 );
 

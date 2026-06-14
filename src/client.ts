@@ -8,6 +8,19 @@ export interface HarmonicaClientConfig {
   apiKey: string;
 }
 
+export interface ApiTemplate {
+  id: string;
+  title: string;
+  description: string | null;
+  template_type: string;
+  chain_config: unknown | null;
+  is_public: boolean;
+  created_by: string | null;
+  workspace_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export class HarmonicaClient {
   private baseUrl: string;
   private apiKey: string;
@@ -300,5 +313,35 @@ export class HarmonicaClient {
     }>(`/sessions/${sessionId}/summary`, {
       method: 'POST',
     });
+  }
+
+  async createTemplate(values: {
+    title: string;
+    description?: string | null;
+    template_type?: 'single' | 'chain';
+    chain_config?: unknown;
+    is_public?: boolean;
+  }) {
+    return this.request<ApiTemplate>('/templates', {
+      method: 'POST',
+      body: JSON.stringify(values),
+    });
+  }
+
+  async updateTemplate(id: string, values: {
+    title?: string;
+    description?: string | null;
+    template_type?: 'single' | 'chain';
+    chain_config?: unknown;
+    is_public?: boolean;
+  }) {
+    return this.request<ApiTemplate>(`/templates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(values),
+    });
+  }
+
+  async listTemplates() {
+    return this.request<{ data: ApiTemplate[] }>('/templates');
   }
 }
