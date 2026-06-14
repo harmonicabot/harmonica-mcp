@@ -321,6 +321,7 @@ export class HarmonicaClient {
     template_type?: 'single' | 'chain';
     chain_config?: unknown;
     is_public?: boolean;
+    source_provenance?: { spec_id: string; spec_version: string; registry: string };
   }) {
     return this.request<ApiTemplate>('/templates', {
       method: 'POST',
@@ -334,6 +335,8 @@ export class HarmonicaClient {
     template_type?: 'single' | 'chain';
     chain_config?: unknown;
     is_public?: boolean;
+    source_provenance?: { spec_id: string; spec_version: string; registry: string };
+    force?: boolean;
   }) {
     return this.request<ApiTemplate>(`/templates/${id}`, {
       method: 'PATCH',

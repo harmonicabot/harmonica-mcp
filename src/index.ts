@@ -422,14 +422,23 @@ server.tool(
     template_id: z.string().optional().describe('Update this existing template (PATCH) instead of creating a new one.'),
     update_if_exists: z.boolean().optional().describe('If no template_id, update an owned chain template with the same title instead of creating a duplicate. Default false.'),
     is_public: z.boolean().optional().describe('Make the installed template public. Default false — drafts and CC-licensed specs should stay private.'),
+    registry: z.string().optional().describe("Registry the spec came from. Default 'Open-Facilitation-Library/method-specs'."),
+    force: z.boolean().optional().describe('Overwrite a template that has local admin edits since install. Default false.'),
   },
-  async ({ method_md, dry_run, template_id, update_if_exists, is_public }) => {
-    let install;
+  async ({ method_md, dry_run, template_id, update_if_exists, is_public, registry, force }) => {
+    let spec, install;
     try {
-      install = toChainConfig(parseMethodSpec(method_md));
+      spec = parseMethodSpec(method_md);
+      install = toChainConfig(spec);
     } catch (e) {
       return { content: [{ type: 'text', text: `Could not parse method spec: ${(e as Error).message}` }] };
     }
+
+    const provenance = {
+      spec_id: spec.frontmatter.id,
+      spec_version: spec.frontmatter.version ?? '0.0.0',
+      registry: registry ?? 'Open-Facilitation-Library/method-specs',
+    };
 
     const stepCount = install.chain_config.steps.length;
 
@@ -455,7 +464,7 @@ server.tool(
       let action: 'Created' | 'Updated';
 
       if (template_id) {
-        result = await client.updateTemplate(template_id, values);
+        result = await client.updateTemplate(template_id, { ...values, source_provenance: provenance, force: force ?? false });
         action = 'Updated';
       } else if (update_if_exists) {
         const me = await client.getMe();
@@ -463,14 +472,14 @@ server.tool(
           (t) => t.template_type === 'chain' && t.title === install.title && t.created_by === me.id,
         );
         if (existing) {
-          result = await client.updateTemplate(existing.id, values);
+          result = await client.updateTemplate(existing.id, { ...values, source_provenance: provenance, force: force ?? false });
           action = 'Updated';
         } else {
-          result = await client.createTemplate(values);
+          result = await client.createTemplate({ ...values, source_provenance: provenance });
           action = 'Created';
         }
       } else {
-        result = await client.createTemplate(values);
+        result = await client.createTemplate({ ...values, source_provenance: provenance });
         action = 'Created';
       }
 
