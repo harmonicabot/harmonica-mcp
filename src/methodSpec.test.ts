@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { parseMethodSpec, toChainConfig } from './methodSpec.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const M2M = readFileSync(join(__dirname, '__fixtures__', 'many-to-many-readiness.method.md'), 'utf-8');
 
 const MINIMAL = `---
 id: demo
@@ -133,5 +139,41 @@ describe('parseMethodSpec — robustness', () => {
   it('throws a clean error on empty frontmatter', () => {
     // Valid fence structure but an empty YAML body → yaml.load returns undefined.
     expect(() => parseMethodSpec('---\n\n---\n')).toThrow(/empty or not a YAML object/i);
+  });
+});
+
+describe('many-to-many-readiness (real spec)', () => {
+  it('produces a 5-step chain in stage order', () => {
+    const out = toChainConfig(parseMethodSpec(M2M));
+    expect(out.chain_config.steps.map((s) => s.id)).toEqual([
+      'context-diagnostic',
+      'asset-mapping',
+      'role-mapping',
+      'risk-mapping',
+      'readiness-synthesis',
+    ]);
+  });
+
+  it('expands roles and keeps invariants (unique ids, unique slugs/step)', () => {
+    const out = toChainConfig(parseMethodSpec(M2M));
+    const ids = out.chain_config.steps.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const step of out.chain_config.steps) {
+      const slugs = (step.roles ?? []).map((r) => r.slug);
+      expect(new Set(slugs).size).toBe(slugs.length);
+      for (const r of step.roles ?? []) expect(r.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('maps every stage completion to all_submitted', () => {
+    const out = toChainConfig(parseMethodSpec(M2M));
+    for (const step of out.chain_config.steps) {
+      expect(step.completion_criteria).toEqual({ type: 'all_submitted' });
+    }
+  });
+
+  it('carries attribution into the description', () => {
+    const out = toChainConfig(parseMethodSpec(M2M));
+    expect(out.description).toContain('Dark Matter Labs');
   });
 });
