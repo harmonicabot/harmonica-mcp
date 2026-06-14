@@ -60,6 +60,7 @@ Two source files:
 | `list_telegram_groups` | List Telegram groups registered to the user's account |
 | `chat_message` | Send a message in a session conversation and get facilitator response |
 | `submit_questions` | Submit pre-session question answers and start facilitated conversation |
+| `install_method_spec` | Install an OFL method spec (method.md) as a runnable chain template |
 
 ## Client methods NOT yet exposed as tools
 
