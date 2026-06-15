@@ -13,3 +13,10 @@ Append-only per-session log. Format: `## YYYY-MM-DD — [topic]` + Done / Decisi
 - **Decisions:** Server-authoritative validation — lean local checks only (chain artifact, role-slug resolution, ≥1 stage); `chainConfigSchema` is the source of truth. Rejected the review's "mirror the Zod enums/unions in TS types" because those types sit on `yaml.load` output (a cast = no runtime guard) and would reintroduce schema drift. `tsconfig` excludes tests + fixtures from the published build.
 - **State:** master clean + pushed; `0.8.0` live on npm; `v0.8.0` tagged.
 - **Next:** none on the tool. M2M template kept private (spec is `draft` + CC BY-NC — loop Dark Matter Labs in before any public use).
+
+## 2026-06-14 — provenance stamping in install_method_spec (0.9.0)
+- **Done:** `install_method_spec` now sends `source_provenance` (spec_id/version from frontmatter) + a `registry` param + a `force` flag; `client.ts` `createTemplate`/`updateTemplate` types extended; new client test. Published `0.9.0`. End-to-end verified in prod (0.9.0 install path → deployed Pro stamped the full provenance blob; throwaway template cleaned up). HAR-1108 (Pro #410 ships the API side).
+- **Decisions:** Server stamps `install_hash` + timestamps; the tool sends only spec identity (server-authoritative, same as 0.8.0).
+- **State:** master clean; `0.9.0` live on npm; package-lock version synced to 0.9.0 in a follow-up.
+- **Next:** none. Pairs with Pro #410 + harmonica-docs OpenAPI mirror.
+- **Lesson:** Bump versions with `npm version` (updates package.json + package-lock together), not a hand-edit — Task 10's hand-edit left a version mismatch on master, fixed in a follow-up commit.
