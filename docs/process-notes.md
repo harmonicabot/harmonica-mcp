@@ -20,3 +20,10 @@ Append-only per-session log. Format: `## YYYY-MM-DD — [topic]` + Done / Decisi
 - **State:** master clean; `0.9.0` live on npm; package-lock version synced to 0.9.0 in a follow-up.
 - **Next:** none. Pairs with Pro #410 + harmonica-docs OpenAPI mirror.
 - **Lesson:** Bump versions with `npm version` (updates package.json + package-lock together), not a hand-edit — Task 10's hand-edit left a version mismatch on master, fixed in a follow-up commit.
+
+## 2026-06-25 — create_project + publish_sensemaking_topic tools (0.10.0)
+- **Done:** Added `create_project` + `publish_sensemaking_topic` tools + client methods (`createProject`, `publishSensemakingTopic`, `getSensemakingTopic`) wrapping the new Pro v1 endpoints (harmonica-web-app-pro#488, HAR-1119). Tests 21/21. Merged #5, published 0.10.0 (npm latest). harmonica-docs OpenAPI + docs.json nav + mcp-server.mdx updated.
+- **Decisions:** snake_case tool params mapped to the v1 camelCase toggles (`reasoningLensEnabled`/`knowledgeStatementsEnabled`); `getSensemakingTopic` client-only (no tool); mirrored the `createTemplate`/`install_method_spec` shape.
+- **State:** master clean; 0.10.0 live on npm.
+- **Next:** none on the tools. HAR-1119 has an optional live mutating end-to-end smoke.
+- **Lesson (again):** hand-edited the version in PR #5 → package-lock drifted 0.9.0→0.10.0 (same trap as the 0.9.0 entry). Re-synced this wrap-up via `npm version 0.10.0 --allow-same-version --no-git-tag-version`. Use `npm version` next time.

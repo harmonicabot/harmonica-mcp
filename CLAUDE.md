@@ -14,7 +14,7 @@ npm run dev     # Watch mode compilation
 npm start       # Run the MCP server (requires HARMONICA_API_KEY env var)
 ```
 
-No test suite. No linter configured.
+Vitest test suite — `npm test` (`src/client.test.ts`, `src/methodSpec.test.ts`). No linter configured.
 
 ## Publishing
 
