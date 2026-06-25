@@ -27,3 +27,10 @@ Append-only per-session log. Format: `## YYYY-MM-DD — [topic]` + Done / Decisi
 - **State:** master clean; 0.10.0 live on npm.
 - **Next:** none on the tools. HAR-1119 has an optional live mutating end-to-end smoke.
 - **Lesson (again):** hand-edited the version in PR #5 → package-lock drifted 0.9.0→0.10.0 (same trap as the 0.9.0 entry). Re-synced this wrap-up via `npm version 0.10.0 --allow-same-version --no-git-tag-version`. Use `npm version` next time.
+
+## 2026-05-23 — list_templates tool (0.11.0)
+- **Done:** Added `list_templates` tool (HAR-1227 Phase 2) wrapping the existing `client.listTemplates()` → `GET /api/v1/templates`. Returns `id / title / description / template_type` for each template visible to the caller. Inserted right before `chat_message` in the tool ordering. Tests 21/21. Bumped via `npm version minor` (no hand-edit this time — heeded the lesson from 0.10.0). Published 0.11.0 to npm (latest). Tag v0.11.0 pushed.
+- **Decisions:** Tool returns text-formatted list (markdown bullets) following the `list_telegram_groups` pattern, not JSON — consumers parse it the same way. Included `template_type` (single|chain) for context but kept payload minimal. Did NOT filter to public-only here; the v1 endpoint already does the "visible to caller" filtering (HAR-564), so the MCP tool just relays.
+- **State:** master clean + pushed @ f6c8e23; 0.11.0 live on npm; v0.11.0 tag pushed.
+- **Next:** None on this tool. Unlocks harmonica-chat v3.3.0's runtime template fetching.
+- **Lesson:** `npm version minor` requires a clean git working dir — committed the source change first, then bumped, then built/tested/published. The deprecation warnings on `server.tool(name, desc, schema, handler)` signature are pre-existing across all tools (MCP SDK changed signature); my new tool follows the same form for consistency. Cleanup is a future repo-wide refactor.
