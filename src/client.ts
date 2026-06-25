@@ -21,6 +21,33 @@ export interface ApiTemplate {
   updated_at: string;
 }
 
+export interface ApiProject {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  is_public: boolean;
+  created_at: string;
+}
+
+export interface ApiSensemakingTopic {
+  workspace_id: string;
+  enabled: boolean;
+  slug: string | null;
+  theme: string | null;
+  title: string | null;
+  description: string | null;
+  intro: string | null;
+  faq: Array<{ q: string; a: string }> | null;
+  group_count: number;
+  statement_count: number;
+  voter_count: number;
+  computed_at: string | null;
+  gallery_status: string;
+  reasoning_lens_enabled: boolean;
+  created_at: string;
+}
+
 export class HarmonicaClient {
   private baseUrl: string;
   private apiKey: string;
@@ -346,5 +373,41 @@ export class HarmonicaClient {
 
   async listTemplates() {
     return this.request<{ data: ApiTemplate[] }>('/templates');
+  }
+
+  async createProject(values: { title: string; description?: string | null }) {
+    return this.request<ApiProject>('/projects', {
+      method: 'POST',
+      body: JSON.stringify(values),
+    });
+  }
+
+  async getSensemakingTopic(projectId: string) {
+    return this.request<{ data: ApiSensemakingTopic | null }>(
+      `/projects/${projectId}/sensemaking`,
+    );
+  }
+
+  async publishSensemakingTopic(
+    projectId: string,
+    values: {
+      slug?: string | null;
+      title?: string | null;
+      description?: string | null;
+      intro?: string | null;
+      faq?: Array<{ q: string; a: string }> | null;
+      theme?: string | null;
+      enabled?: boolean;
+      reasoningLensEnabled?: boolean;
+      knowledgeStatementsEnabled?: boolean;
+    },
+  ) {
+    return this.request<{ data: ApiSensemakingTopic }>(
+      `/projects/${projectId}/sensemaking`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(values),
+      },
+    );
   }
 }
