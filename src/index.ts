@@ -378,6 +378,40 @@ server.tool(
 );
 
 server.tool(
+  'list_templates',
+  "List Harmonica session templates available to your account (public global templates + templates you own / can access). Use to discover what facilitation patterns are configured in the platform — pass the returned id to create_session as template_id to launch a session with that template's stored facilitation_prompt. Returns id, title, description, and template_type (single | chain) for each.",
+  {},
+  async () => {
+    const result = await client.listTemplates();
+
+    if (result.data.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'No templates available to your account.',
+          },
+        ],
+      };
+    }
+
+    const lines = result.data.map(
+      (t) =>
+        `- ${t.title} (id: \`${t.id}\`, type: ${t.template_type})${t.description ? `\n  ${t.description}` : ''}`,
+    );
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Available templates (${result.data.length}):\n\n${lines.join('\n')}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
   'chat_message',
   'Send a message in a Harmonica session conversation and get the AI facilitator response. Creates a new participant thread if first message.',
   {
