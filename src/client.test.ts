@@ -44,3 +44,49 @@ describe('HarmonicaClient.createTemplate', () => {
     });
   });
 });
+
+describe('HarmonicaClient.createProject', () => {
+  it('POSTs to /api/v1/projects with the title body + bearer auth', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ id: 'ws-1', title: 'My Topic', status: 'active', is_public: false }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const client = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+    const res = await client.createProject({ title: 'My Topic' });
+
+    expect(res.id).toBe('ws-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects');
+    expect(init?.method).toBe('POST');
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer hm_live_test');
+    expect(JSON.parse(init?.body as string).title).toBe('My Topic');
+  });
+});
+
+describe('HarmonicaClient.publishSensemakingTopic', () => {
+  it('PATCHes to /api/v1/projects/{id}/sensemaking with the publish body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { workspace_id: 'ws-1', enabled: true, slug: 'my-topic' } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const client = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+    const res = await client.publishSensemakingTopic('ws-1', {
+      slug: 'my-topic',
+      enabled: true,
+      reasoningLensEnabled: true,
+    });
+
+    expect(res.data.slug).toBe('my-topic');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects/ws-1/sensemaking');
+    expect(init?.method).toBe('PATCH');
+    const body = JSON.parse(init?.body as string);
+    expect(body.slug).toBe('my-topic');
+    expect(body.enabled).toBe(true);
+    expect(body.reasoningLensEnabled).toBe(true);
+  });
+});

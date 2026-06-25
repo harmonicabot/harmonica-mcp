@@ -496,6 +496,115 @@ server.tool(
   },
 );
 
+server.tool(
+  'create_project',
+  'Create a Harmonica project (workspace) you own. Use the returned project ID to publish it as a public sensemaking topic via publish_sensemaking_topic, or to scope sessions/templates to the project. Reuse an existing project by passing its ID to those tools instead of creating a new one.',
+  {
+    title: z.string().describe('Project title'),
+    description: z.string().optional().describe('Optional project description (markdown)'),
+  },
+  async ({ title, description }) => {
+    const project = await client.createProject({ title, description });
+    const text = [
+      `Project created!`,
+      ``,
+      `  Title: ${project.title}`,
+      `  ID:    ${project.id}`,
+      ``,
+      `Publish it as a public sensemaking topic with publish_sensemaking_topic (project_id: ${project.id}).`,
+    ].join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'publish_sensemaking_topic',
+  "Author and publish a Harmonica project as a public sensemaking topic — the /explore hub entry + the /t/[slug] opinion-landscape page built from the project's sessions. Pass enabled: true with a slug (here or already saved) to publish. Requires editor access to the project. Listing on /explore is a separate admin-curated step.",
+  {
+    project_id: z.string().describe('Project (workspace) ID, e.g. from create_project'),
+    slug: z
+      .string()
+      .optional()
+      .describe('URL handle for /t/[slug] — lowercase words separated by single hyphens. Required to publish (in this call or already saved).'),
+    title: z.string().optional().describe('Public topic title (defaults to the project title).'),
+    description: z.string().optional().describe('Short public description / framing.'),
+    intro: z.string().optional().describe('Host-authored background paragraph shown on the topic page.'),
+    faq: z
+      .array(z.object({ q: z.string(), a: z.string() }))
+      .optional()
+      .describe('Up to 10 FAQ entries shown on the topic page.'),
+    theme: z.string().optional().describe('Topic category powering the /explore hub filter.'),
+    enabled: z
+      .boolean()
+      .optional()
+      .describe('Set true to publish (make /t/[slug] live + build the snapshot), false to unpublish.'),
+    reasoning_lens_enabled: z
+      .boolean()
+      .optional()
+      .describe('Opt the embedding-based Reasoning lens in.'),
+    knowledge_statements_enabled: z
+      .boolean()
+      .optional()
+      .describe('Source opinion-map statements from project knowledge (claims + tensions).'),
+  },
+  async ({
+    project_id,
+    slug,
+    title,
+    description,
+    intro,
+    faq,
+    theme,
+    enabled,
+    reasoning_lens_enabled,
+    knowledge_statements_enabled,
+  }) => {
+    const values = Object.fromEntries(
+      Object.entries({
+        slug,
+        title,
+        description,
+        intro,
+        faq,
+        theme,
+        enabled,
+        reasoningLensEnabled: reasoning_lens_enabled,
+        knowledgeStatementsEnabled: knowledge_statements_enabled,
+      }).filter(([, v]) => v !== undefined),
+    );
+
+    if (Object.keys(values).length === 0) {
+      return {
+        content: [
+          { type: 'text', text: 'Error: No fields provided. Pass at least a slug + enabled:true to publish.' },
+        ],
+      };
+    }
+
+    try {
+      const { data: topic } = await client.publishSensemakingTopic(project_id, values);
+      const text = [
+        topic.enabled ? `Topic published!` : `Topic settings saved (not published).`,
+        ``,
+        `  Project:    ${topic.workspace_id}`,
+        topic.slug ? `  Slug:       ${topic.slug}` : null,
+        topic.theme ? `  Theme:      ${topic.theme}` : null,
+        `  Published:  ${topic.enabled ? 'yes' : 'no'}`,
+        topic.enabled && topic.slug ? `  Public URL: ${HARMONICA_API_URL}/t/${topic.slug}` : null,
+        ``,
+        topic.enabled
+          ? `The opinion landscape builds from the project's sessions (may take a moment). Listing on /explore needs admin approval.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      return { content: [{ type: 'text', text }] };
+    } catch (e) {
+      return { content: [{ type: 'text', text: `Publish failed: ${(e as Error).message}` }] };
+    }
+  },
+);
+
 // ─── Start ───────────────────────────────────────────────────────────
 
 async function main() {

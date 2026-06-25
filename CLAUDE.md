@@ -61,12 +61,15 @@ Two source files:
 | `chat_message` | Send a message in a session conversation and get facilitator response |
 | `submit_questions` | Submit pre-session question answers and start facilitated conversation |
 | `install_method_spec` | Install an OFL method spec (method.md) as a runnable chain template |
+| `create_project` | Create a project (workspace) you own |
+| `publish_sensemaking_topic` | Publish a project as a public sensemaking topic (`/explore` + `/t/[slug]`) |
 
 ## Client methods NOT yet exposed as tools
 
 `client.ts` has additional methods with no corresponding MCP tool:
 - `getMe()` — current user info
 - `submitResponse(sessionId, content)` — submit a response (non-conversational)
+- `getSensemakingTopic(projectId)` — read a project's sensemaking-topic publish status
 
 ## API endpoints NOT yet in client
 
