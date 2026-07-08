@@ -90,3 +90,97 @@ describe('HarmonicaClient.publishSensemakingTopic', () => {
     expect(body.reasoningLensEnabled).toBe(true);
   });
 });
+
+describe('HarmonicaClient project management (HAR-1298)', () => {
+  const client = () =>
+    new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+
+  it('listProjects GETs /projects with pagination query + bearer auth', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ id: 'ws-1', title: 'P' }], pagination: { total: 1, limit: 10, offset: 5 } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const res = await client().listProjects({ limit: 10, offset: 5 });
+
+    expect(res.data[0].id).toBe('ws-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects?limit=10&offset=5');
+    expect(init?.method ?? 'GET').toBe('GET');
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer hm_live_test');
+  });
+
+  it('getProject GETs /projects/{id} and returns session_ids', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'ws-1', title: 'P', session_ids: ['s-1', 's-2'] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const res = await client().getProject('ws-1');
+
+    expect(res.session_ids).toEqual(['s-1', 's-2']);
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects/ws-1');
+  });
+
+  it('updateProject PATCHes /projects/{id} with the update body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'ws-1', title: 'Renamed' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const res = await client().updateProject('ws-1', { title: 'Renamed' });
+
+    expect(res.title).toBe('Renamed');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects/ws-1');
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(init?.body as string).title).toBe('Renamed');
+  });
+
+  it('deleteProject DELETEs /projects/{id}', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'ws-1', title: 'P', status: 'deleted' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const res = await client().deleteProject('ws-1');
+
+    expect(res.status).toBe('deleted');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects/ws-1');
+    expect(init?.method).toBe('DELETE');
+  });
+
+  it('createSession forwards project_id in the POST body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ id: 's-1', topic: 'T', goal: 'G', status: 'active', join_url: 'x' }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    await client().createSession({ topic: 'T', goal: 'G', project_id: 'ws-1' });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init?.body as string).project_id).toBe('ws-1');
+  });
+
+  it('updateSession forwards project_id: null (detach) in the PATCH body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 's-1', topic: 'T', goal: 'G', status: 'active' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client().updateSession('s-1', { project_id: null });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init?.body as string);
+    expect(body.project_id).toBeNull();
+    expect('project_id' in body).toBe(true);
+  });
+});

@@ -233,6 +233,7 @@ export class HarmonicaClient {
     cross_pollination?: boolean;
     widgets_enabled?: boolean;
     results_visibility?: 'public' | 'participants' | 'host';
+    project_id?: string;
     distribution?: Array<{ channel: string; group_id: string }>;
     questions?: Array<{
       text: string;
@@ -273,6 +274,7 @@ export class HarmonicaClient {
     cross_pollination?: boolean;
     widgets_enabled?: boolean;
     results_visibility?: 'public' | 'participants' | 'host';
+    project_id?: string | null;
     welcome_message?: string;
     meta_description?: string;
     intro_video_url?: string | null;
@@ -379,6 +381,34 @@ export class HarmonicaClient {
     return this.request<ApiProject>('/projects', {
       method: 'POST',
       body: JSON.stringify(values),
+    });
+  }
+
+  async listProjects(params?: { limit?: number; offset?: number }) {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return this.request<{
+      data: ApiProject[];
+      pagination: { total: number; limit: number; offset: number };
+    }>(`/projects${qs ? `?${qs}` : ''}`);
+  }
+
+  async getProject(id: string) {
+    return this.request<ApiProject & { session_ids: string[] }>(`/projects/${id}`);
+  }
+
+  async updateProject(id: string, values: { title?: string; description?: string }) {
+    return this.request<ApiProject>(`/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(values),
+    });
+  }
+
+  async deleteProject(id: string) {
+    return this.request<ApiProject>(`/projects/${id}`, {
+      method: 'DELETE',
     });
   }
 

@@ -44,8 +44,8 @@ Share the join URL with participants. Once they've responded, use `get_responses
 
 | Tool | Description |
 |------|-------------|
-| `create_session` | Create a new deliberation session and get a shareable join URL (optional: `questions`) |
-| `update_session` | Update session metadata (topic, goal, context, critical, prompt) |
+| `create_session` | Create a new deliberation session and get a shareable join URL (optional: `questions`, `project_id` to file it under a project) |
+| `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move it into a project or `null` to detach) |
 | `list_sessions` | List your deliberation sessions (filter by status, search) |
 | `get_session` | Get full session details (includes facilitation prompt) |
 | `get_questions` | Get pre-session questions (data collection form) |
@@ -54,6 +54,12 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `search_sessions` | Search by topic or goal |
 | `list_telegram_groups` | List Telegram groups registered to the user's account (no parameters) |
 | `install_method_spec` | Install an OFL method spec (method.md) as a runnable chain template |
+| `create_project` | Create a project (workspace) to group related sessions |
+| `list_projects` | List the projects (workspaces) you have access to |
+| `get_project` | Get a project by id, with the ids of its linked sessions |
+| `update_project` | Rename a project or update its description (editor access) |
+| `delete_project` | Soft-delete a project; its sessions are left intact (owner access) |
+| `publish_sensemaking_topic` | Publish a project as a public sensemaking topic (`/explore` + `/t/[slug]`) |
 
 ## From Source
 
