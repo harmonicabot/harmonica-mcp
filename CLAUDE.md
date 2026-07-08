@@ -47,8 +47,8 @@ Two source files:
 
 | Tool | Description |
 |------|-------------|
-| `create_session` | Create a new session and get a shareable join URL |
-| `update_session` | Update session metadata (topic, goal, context, critical, prompt) |
+| `create_session` | Create a new session and get a shareable join URL (optional `project_id` to file it under a project) |
+| `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move into a project or `null` to detach) |
 | `list_sessions` | List sessions with optional status filter and search |
 | `get_session` | Get full session details including facilitation prompt |
 | `list_participants` | List participants for a session |
@@ -62,6 +62,10 @@ Two source files:
 | `submit_questions` | Submit pre-session question answers and start facilitated conversation |
 | `install_method_spec` | Install an OFL method spec (method.md) as a runnable chain template |
 | `create_project` | Create a project (workspace) you own |
+| `list_projects` | List projects (workspaces) you have access to |
+| `get_project` | Get a project by id, with the ids of its linked sessions |
+| `update_project` | Rename a project or update its description (editor role) |
+| `delete_project` | Soft-delete a project; contained sessions are left intact (owner role) |
 | `publish_sensemaking_topic` | Publish a project as a public sensemaking topic (`/explore` + `/t/[slug]`) |
 
 ## Client methods NOT yet exposed as tools

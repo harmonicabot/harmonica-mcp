@@ -237,6 +237,7 @@ server.tool(
     cross_pollination: z.boolean().optional().describe('Enable idea sharing between participant threads'),
     widgets_enabled: z.boolean().optional().describe('Enable AI-emitted Polls and ratings widgets (SingleSelect, MultiSelect, RatingScale, RankingList) during the session. Default false.'),
     results_visibility: z.enum(['public', 'participants', 'host']).optional().describe('Who can see aggregated results. "host" = owner only; "participants" = anyone who completed (drives end-of-chat "See what others said" link); "public" = anyone with the URL. Defaults to "participants" for MCP-created sessions (programmatic use case usually wants distributed visibility); pass "host" explicitly to keep results private.'),
+    project_id: z.string().optional().describe('Attach the new session to a project (workspace) by id, so it is grouped under that project. You must have editor access to the project. Create one with create_project or find one with list_projects.'),
     distribution: z.array(z.object({
       channel: z.string().describe('Distribution channel (e.g. "telegram")'),
       group_id: z.string().describe('Target group identifier'),
@@ -248,7 +249,7 @@ server.tool(
       options: z.array(z.string()).optional().describe('Choices when `type` is "Options".'),
     })).optional().describe('Pre-session questions (e.g. name, role, email). Participants answer these before chatting. Pass `type: "Email"` and `required: true` to validate contact details up front.'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, distribution, questions }) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, project_id, distribution, questions }) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -263,6 +264,7 @@ server.tool(
       // itself still defaults to 'host' for backwards compat; this is the
       // MCP-layer opinionated default. Caller can override explicitly.
       results_visibility: results_visibility ?? 'participants',
+      project_id,
       distribution,
       questions,
     });
@@ -301,6 +303,7 @@ server.tool(
     cross_pollination: z.boolean().optional().describe('Enable/disable idea sharing between participant threads'),
     widgets_enabled: z.boolean().optional().describe('Enable AI-emitted Polls and ratings widgets (SingleSelect, MultiSelect, RatingScale, RankingList). Default false.'),
     results_visibility: z.enum(['public', 'participants', 'host']).optional().describe('Who can see aggregated results. "host" = owner only; "participants" = anyone who completed; "public" = anyone with the URL.'),
+    project_id: z.string().nullable().optional().describe('Move the session into a project (workspace) by id, or pass `null` to detach it from all projects. Requires editor access to the target project. Attaching does not remove the session from any OTHER project it belongs to.'),
     welcome_message: z.string().optional().describe('Markdown welcome message shown on the session landing page before participants enter chat.'),
     meta_description: z.string().optional().describe('Session-specific OG meta description for landing-page link previews.'),
     intro_video_url: z.string().nullable().optional().describe('Optional intro video URL embedded on the session landing page. Pass `null` to clear.'),
@@ -547,6 +550,89 @@ server.tool(
       ``,
       `Publish it as a public sensemaking topic with publish_sensemaking_topic (project_id: ${project.id}).`,
     ].join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'list_projects',
+  'List the Harmonica projects (workspaces) you have access to. A project groups related sessions and can be published as a public sensemaking topic. Returns title + id for each.',
+  {
+    limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
+    offset: z.number().min(0).optional().describe('Pagination offset (default 0)'),
+  },
+  async ({ limit, offset }) => {
+    const result = await client.listProjects({ limit, offset });
+    if (!result.data.length) {
+      return { content: [{ type: 'text', text: 'No projects found.' }] };
+    }
+    const lines = result.data.map(
+      (p) => `- ${p.title}${p.status && p.status !== 'active' ? ` [${p.status}]` : ''} — ${p.id}`,
+    );
+    return {
+      content: [{ type: 'text', text: `${result.pagination.total} projects:\n\n${lines.join('\n')}` }],
+    };
+  },
+);
+
+server.tool(
+  'get_project',
+  'Get a single Harmonica project (workspace) by id, including the ids of the sessions linked to it.',
+  {
+    project_id: z.string().describe('Project (workspace) ID'),
+  },
+  async ({ project_id }) => {
+    const p = await client.getProject(project_id);
+    const text = [
+      `**${p.title}**`,
+      `ID: ${p.id}`,
+      `Status: ${p.status}`,
+      p.description ? `Description: ${p.description}` : null,
+      `Linked sessions (${p.session_ids.length}): ${p.session_ids.length ? p.session_ids.join(', ') : 'none'}`,
+      `Created: ${p.created_at}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'update_project',
+  'Rename a Harmonica project (workspace) or update its description. Requires editor access. Pass at least one of title / description.',
+  {
+    project_id: z.string().describe('Project (workspace) ID'),
+    title: z.string().min(1).max(200).optional().describe('New project title'),
+    description: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe('New project description (markdown). Pass an empty string to clear it.'),
+  },
+  async ({ project_id, title, description }) => {
+    const values = Object.fromEntries(
+      Object.entries({ title, description }).filter(([, v]) => v !== undefined),
+    );
+    if (Object.keys(values).length === 0) {
+      return {
+        content: [{ type: 'text', text: 'Error: provide at least one of title, description.' }],
+      };
+    }
+    const p = await client.updateProject(project_id, values);
+    const text = [`Project updated!`, ``, `  Title: ${p.title}`, `  ID:    ${p.id}`].join('\n');
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+server.tool(
+  'delete_project',
+  'Soft-delete a Harmonica project (workspace): it is archived (status=deleted) and the sessions inside it are left intact, just ungrouped. Requires owner access. This never deletes any sessions.',
+  {
+    project_id: z.string().describe('Project (workspace) ID'),
+  },
+  async ({ project_id }) => {
+    const p = await client.deleteProject(project_id);
+    const text = `Project "${p.title}" deleted (status: ${p.status}). Its sessions were not deleted.`;
     return { content: [{ type: 'text', text }] };
   },
 );
