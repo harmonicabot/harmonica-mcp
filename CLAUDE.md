@@ -42,7 +42,9 @@ Neon Postgres
 This is a **client** of the Harmonica REST API (`/api/v1/`), which lives in `harmonica-web-app/`. ESM module (`"type": "module"` in package.json).
 
 Source files:
-- `src/index.ts` — MCP server entry point. Collects tool registrations, then `serveStdio(createServer)`.
+- `src/index.ts` — bootstrap only. Reads env, picks the transport, wires it. No tool definitions.
+- `src/tools.ts` — the 21 tool definitions and `createServer(client, version)`. Pure: no env reads, no filesystem, no transport.
+- `src/http.ts` — `startHttpServer()`. `node:http` plus the SDK's web-standard handler. Loaded lazily, so a stdio run never pays for it.
 - `src/client.ts` — HTTP client wrapping the Harmonica REST API. All methods throw on HTTP errors.
 - `src/methodSpec.ts` — parses OFL method specs (`method.md`) into chain configs.
 
@@ -52,13 +54,13 @@ On `@modelcontextprotocol/server` v2 (the package **split** — there is no `@mo
 
 Three things to know before editing `index.ts`:
 
-- **`serveStdio` takes a factory, not a server.** The stateless core (SEP-2575/SEP-2567) lets the SDK build one server per connection. Tools are therefore collected into a `registrations` array at module load and replayed onto each server `createServer()` builds. Over stdio there is only ever one connection; the shape exists so HAR-602's HTTP transport needs no rework.
+- **`serveStdio` takes a factory, not a server.** The stateless core (SEP-2575/SEP-2567) lets the SDK build one server per connection. Tools are therefore collected into a `registrations` array at module load and replayed onto each server `createServer()` builds. Over stdio there is only ever one connection. That shape is what let the HTTP transport reuse `createServer` unchanged, building a fresh per-request server bound to the caller's own key.
 - **Register tools through the local `tool()` helper, never `server.registerTool` directly.** The helper wraps the raw shape in `z.object()` at a single boundary. Raw-shape `inputSchema` still works — the SDK auto-wraps it — but it is deprecated, and the auto-wrap emits **byte-identical JSON Schema**, so nothing at runtime tells you which path a tool took. `index.test.ts` guards this structurally by asserting there is exactly one `registerTool` call.
 - **The 2026-07-28 `_meta` envelope needs both `protocolVersion` and `clientCapabilities`.** Sending only the first is a `-32602`. Requests with no `_meta` are treated as 2025-era and are answered normally, minus the cacheable-result fields.
 
 `tools/list` carries a cache hint (`ttlMs` 1h, `cacheScope: 'public'`, SEP-2549) set via `cacheHints` on the `McpServer` constructor. It is emitted only to 2026-07-28 clients — sending those fields to a 2025-era client would be a protocol violation.
 
-## MCP Tools (exposed in index.ts)
+## MCP Tools (defined in tools.ts)
 
 | Tool | Description |
 |------|-------------|
@@ -101,8 +103,33 @@ The McpServer version is read from `package.json` at startup. Bump with `npm ver
 
 ## Environment Variables
 
-- `HARMONICA_API_KEY` (required) — API key from Harmonica dashboard
+- `HARMONICA_API_KEY` — API key from Harmonica dashboard. **Required for stdio, refused for HTTP** (see below).
 - `HARMONICA_API_URL` (optional) — API base URL, defaults to `https://app.harmonica.chat`
+- `MCP_TRANSPORT` (optional) — set to `http` to serve over HTTP. Anything else, or unset, means stdio.
+- `MCP_ALLOWED_HOSTS` — comma-separated hostnames. **Required in HTTP mode.**
+- `PORT` (optional) — HTTP mode only, defaults to 3000.
+
+## HTTP transport
+
+`MCP_TRANSPORT=http` (or `--http`) serves the same 21 tools over Streamable HTTP instead of stdio. **stdio remains the default**, so existing `npx -y harmonica-mcp` installs are untouched.
+
+Each request carries its own key — `Authorization: Bearer <harmonica-api-key>` — and gets its own `HarmonicaClient` and its own server instance, so two callers with different keys can be in flight at once and nothing is shared between them.
+
+| Route | Behaviour |
+|---|---|
+| `POST /mcp` | The MCP endpoint. Body cap → host allowlist → bearer check → dispatch. |
+| `GET /healthz` | Liveness only. No auth, and deliberately no call to the Harmonica API, so an upstream outage cannot turn a platform health check red. |
+| anything else | 404 |
+
+**Two boot failures, and they are the load-bearing part of this design.** HTTP mode refuses to start if `HARMONICA_API_KEY` is set, or if `MCP_ALLOWED_HOSTS` is unset. Both misconfigurations are otherwise completely silent: a server booted with an env key works perfectly and serves every anonymous caller as the deploy owner's account; one booted without an allowlist works perfectly with no DNS-rebinding protection at all. Nothing downstream looks wrong in either case, so startup is the only place the mistake is still cheap. Do not soften either guard into a warning.
+
+**Body cap.** `MAX_BODY_BYTES` (1 MiB) is enforced before routing and before auth, so an unauthenticated caller cannot make the process buffer an arbitrary payload. The memory bound is absolute; delivery of the 413 is best-effort, because closing a socket while a flood still has unread bytes in the kernel receive buffer produces an RST regardless of what userland does. That trade is deliberate and documented at the call site — a caller flooding the endpoint is owed a server that does not buffer it, not a tidy error.
+
+**No host validation happens unless you call it.** The SDK exposes no `allowedHosts` option; `hostHeaderValidationResponse(req, hosts)` is a helper `src/http.ts` invokes itself. Removing that call silently removes the protection.
+
+**SEP-2243 (`Mcp-Method` / `Mcp-Name` / `Mcp-Param-*`) needs nothing from this transport.** These are headers the *client* attaches to outbound requests on a 2026-07-28 connection. `createMcpHandler` validates their presence and cross-checks them against the JSON-RPC body inside its own dispatch ladder, which runs within `handler.fetch()` — already called for every `/mcp` request. The SDK emits no `Mcp-*` *response* headers, and that is correct rather than a gap.
+
+**Testing note.** `Host` is a forbidden request-header name, so `fetch()` overwrites it with the real target. Any test that needs to send a spoofed `Host` must use `node:http.request`; written with `fetch` it will still pass while testing nothing.
 
 ## CI
 

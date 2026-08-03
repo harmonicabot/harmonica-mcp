@@ -57,6 +57,18 @@ export class HarmonicaClient {
     this.apiKey = config.apiKey;
   }
 
+  /**
+   * Builds a public-facing URL under this client's base URL, e.g. for a session/topic link shown
+   * back to the caller. A purpose-built accessor rather than exposing `baseUrl` itself — callers
+   * get exactly the derived string they need without a raw value to build arbitrary URLs against
+   * (this package publishes `dist/`, so `client.js` is reachable by deep import). `baseUrl` never
+   * carries a trailing slash (stripped above), so a leading slash is enforced on `path` here to
+   * avoid ever concatenating into a double slash regardless of what the caller passes.
+   */
+  publicUrl(path: string): string {
+    return `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  }
+
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}/api/v1${path}`;
     const maxRetries = 3;
