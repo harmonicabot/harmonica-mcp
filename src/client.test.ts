@@ -91,6 +91,30 @@ describe('HarmonicaClient.publishSensemakingTopic', () => {
   });
 });
 
+describe('HarmonicaClient.publicUrl', () => {
+  it('joins baseUrl (no trailing slash) + a leading-slash path with exactly one slash', () => {
+    const client = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+    expect(client.publicUrl('/t/my-topic')).toBe('https://app.harmonica.chat/t/my-topic');
+  });
+
+  it('inserts the missing leading slash when path has none', () => {
+    const client = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+    expect(client.publicUrl('t/my-topic')).toBe('https://app.harmonica.chat/t/my-topic');
+  });
+
+  it('does not double the slash when baseUrl was configured with a trailing slash', () => {
+    const client = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat/', apiKey: 'hm_live_test' });
+    expect(client.publicUrl('/t/my-topic')).toBe('https://app.harmonica.chat/t/my-topic');
+  });
+
+  it('is unaffected by whether baseUrl was configured with a trailing slash', () => {
+    const withTrailingSlash = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat/', apiKey: 'hm_live_test' });
+    const withoutTrailingSlash = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+    expect(withTrailingSlash.publicUrl('/t/my-topic')).toBe('https://app.harmonica.chat/t/my-topic');
+    expect(withoutTrailingSlash.publicUrl('/t/my-topic')).toBe('https://app.harmonica.chat/t/my-topic');
+  });
+});
+
 describe('HarmonicaClient project management (HAR-1298)', () => {
   const client = () =>
     new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
