@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { request as httpRequest } from 'node:http';
-import { startHttpServer, type HttpServerHandle } from './http.js';
+import { startHttpServer, MAX_BODY_BYTES, type HttpServerHandle } from './http.js';
 
 let handle: HttpServerHandle | undefined;
 afterEach(async () => {
@@ -84,6 +84,49 @@ describe('http transport', () => {
       req.end(JSON.stringify(RPC));
     });
     expect(status).toBe(403);
+  });
+
+  it('rejects an over-cap body with a truthful Content-Length before reading it', async () => {
+    const base = await boot();
+    const big = new Uint8Array(MAX_BODY_BYTES + 1);
+    const res = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: ACCEPT },
+      body: big,
+    });
+    expect(res.status).toBe(413);
+  });
+
+  // `fetch` always computes and sends a correct Content-Length for a fixed-size body, so it can
+  // only exercise the fast-path check above. This is the branch that actually matters: the header
+  // can be absent or lying, and the cap still has to hold via a running total while reading. Using
+  // `node:http.request` and writing the body across multiple chunks (instead of one `.end(buf)`)
+  // makes Node omit Content-Length and fall back to chunked transfer encoding, so the server gets
+  // no length hint at all — verified this reaches the server with no content-length header before
+  // relying on it here.
+  it('rejects an over-cap body sent without a Content-Length header', async () => {
+    await boot();
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = httpRequest(
+        {
+          host: '127.0.0.1',
+          port: handle!.port,
+          path: '/mcp',
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: ACCEPT },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => resolve(res.statusCode ?? 0));
+        },
+      );
+      req.on('error', reject);
+      const chunk = Buffer.alloc(64 * 1024, 'a');
+      const chunksNeeded = Math.ceil((MAX_BODY_BYTES + 1) / chunk.length);
+      for (let i = 0; i < chunksNeeded; i++) req.write(chunk);
+      req.end();
+    });
+    expect(status).toBe(413);
   });
 
   it('serves /healthz without auth', async () => {
