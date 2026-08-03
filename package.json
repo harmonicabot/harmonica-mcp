@@ -32,7 +32,7 @@
   "homepage": "https://github.com/harmonicabot/harmonica-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
-    "js-yaml": "^4.2.0",
+    "js-yaml": "^4.3.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {

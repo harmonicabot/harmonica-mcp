@@ -140,6 +140,27 @@ describe('parseMethodSpec — robustness', () => {
     // Valid fence structure but an empty YAML body → yaml.load returns undefined.
     expect(() => parseMethodSpec('---\n\n---\n')).toThrow(/empty or not a YAML object/i);
   });
+
+  it('does not blow up on a merge-key chain (GHSA-52cp-r559-cp3m)', () => {
+    // `install_method_spec` takes arbitrary `method_md` text from the caller, so this frontmatter
+    // is untrusted input reaching `yaml.load`. js-yaml <= 4.2.0 burned quadratic CPU on nested
+    // merge-key chains; 4.3.1 parses this one in ~10ms.
+    //
+    // Rejecting is an acceptable outcome — hanging is not — so this asserts on time, not result.
+    // The budget is ~500x the observed cost, which keeps it off the flaky list while still
+    // failing outright if the dependency is ever downgraded back into the vulnerable range.
+    let fm = 'id: bomb\ntitle: bomb\na0: &a0 {k: v}\n';
+    for (let i = 1; i < 14; i++) fm += `a${i}: &a${i} {<<: [*a${i - 1}, *a${i - 1}]}\n`;
+    const md = `---\n${fm}---\n\n## Stage: one\n\nbody\n`;
+
+    const start = Date.now();
+    try {
+      parseMethodSpec(md);
+    } catch {
+      /* a parse error is fine; the vulnerability is the CPU burn, not the outcome */
+    }
+    expect(Date.now() - start).toBeLessThan(5000);
+  });
 });
 
 describe('many-to-many-readiness (real spec)', () => {
