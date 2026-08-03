@@ -14,7 +14,9 @@ npm run dev     # Watch mode compilation
 npm start       # Run the MCP server (requires HARMONICA_API_KEY env var)
 ```
 
-Vitest test suite — `npm test` (`src/client.test.ts`, `src/methodSpec.test.ts`). No linter configured.
+Vitest test suite — `npm test` (`src/client.test.ts`, `src/methodSpec.test.ts`, `src/index.test.ts`). No linter configured.
+
+`npm test` runs `npm run build` first, because `index.test.ts` drives the **built** `dist/index.js` over stdio rather than importing a factory — what we publish is the binary, so the tests send the same `tools/list` a real client sends. That also catches bootstrap failures (bad import specifier, transport wiring) a unit test would miss.
 
 ## Publishing
 
@@ -39,9 +41,22 @@ Neon Postgres
 
 This is a **client** of the Harmonica REST API (`/api/v1/`), which lives in `harmonica-web-app/`. ESM module (`"type": "module"` in package.json).
 
-Two source files:
-- `src/index.ts` — MCP server entry point. Registers tools with zod schemas, starts stdio transport.
+Source files:
+- `src/index.ts` — MCP server entry point. Collects tool registrations, then `serveStdio(createServer)`.
 - `src/client.ts` — HTTP client wrapping the Harmonica REST API. All methods throw on HTTP errors.
+- `src/methodSpec.ts` — parses OFL method specs (`method.md`) into chain configs.
+
+## MCP SDK v2
+
+On `@modelcontextprotocol/server` v2 (the package **split** — there is no `@modelcontextprotocol/sdk@2`; a server takes `server`+`core` and drops the client half). Requires **zod 4** and **Node >= 20**, both declared.
+
+Three things to know before editing `index.ts`:
+
+- **`serveStdio` takes a factory, not a server.** The stateless core (SEP-2575/SEP-2567) lets the SDK build one server per connection. Tools are therefore collected into a `registrations` array at module load and replayed onto each server `createServer()` builds. Over stdio there is only ever one connection; the shape exists so HAR-602's HTTP transport needs no rework.
+- **Register tools through the local `tool()` helper, never `server.registerTool` directly.** The helper wraps the raw shape in `z.object()` at a single boundary. Raw-shape `inputSchema` still works — the SDK auto-wraps it — but it is deprecated, and the auto-wrap emits **byte-identical JSON Schema**, so nothing at runtime tells you which path a tool took. `index.test.ts` guards this structurally by asserting there is exactly one `registerTool` call.
+- **The 2026-07-28 `_meta` envelope needs both `protocolVersion` and `clientCapabilities`.** Sending only the first is a `-32602`. Requests with no `_meta` are treated as 2025-era and are answered normally, minus the cacheable-result fields.
+
+`tools/list` carries a cache hint (`ttlMs` 1h, `cacheScope: 'public'`, SEP-2549) set via `cacheHints` on the `McpServer` constructor. It is emitted only to 2026-07-28 clients — sending those fields to a 2025-era client would be a protocol violation.
 
 ## MCP Tools (exposed in index.ts)
 

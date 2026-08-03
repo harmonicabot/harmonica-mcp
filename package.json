@@ -16,7 +16,10 @@
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
-    "test": "vitest run"
+    "test": "npm run build && vitest run"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "keywords": [
     "mcp",
@@ -31,9 +34,9 @@
   },
   "homepage": "https://github.com/harmonicabot/harmonica-mcp#readme",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "js-yaml": "^4.2.0",
-    "zod": "^3.24.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
