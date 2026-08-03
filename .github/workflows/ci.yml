@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Advisories are published against code that has not changed. A push-only gate would never
+    # see them — which is exactly what happened here: the v1 SDK's dependency tree accumulated
+    # nine advisories and nothing signalled it until someone enumerated every MCP server by hand.
+    # 06:00 UTC Mondays.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Report both versions rather than stopping at the first failure — knowing whether a break
+      # is version-specific is most of the diagnosis.
+      fail-fast: false
+      matrix:
+        # 20 is the floor declared in `engines`; testing it catches accidental use of newer APIs.
+        # 24 is what this is actually developed against.
+        node: ['20', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  audit:
+    name: audit (runtime deps)
+    runs-on: ubuntu-latest
+    # Deliberately a separate job, not a step in `test`: a failing audit should not hide test
+    # results, and a red audit on unchanged code is information rather than a broken build.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+
+      # `--omit=dev` because this package is PUBLISHED: what matters is the tree a consumer
+      # inherits when they `npx -y harmonica-mcp`. A dev-only advisory (vitest's postcss, say)
+      # is real but reaches nobody downstream, and gating on it trains people to ignore the
+      # check — which is worse than not having it.
+      #
+      # `--audit-level=high` is the line, not `low`. Fail on what would actually justify an
+      # unplanned release.
+      - name: npm audit (runtime, high and above)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Always visible, never blocking: the full picture including dev deps, so a moderate
+      # advisory is not invisible just because it does not fail the build.
+      - name: Full audit report (informational)
+        if: always()
+        run: npm audit || true

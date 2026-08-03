@@ -89,6 +89,17 @@ The McpServer version is read from `package.json` at startup. Bump with `npm ver
 - `HARMONICA_API_KEY` (required) — API key from Harmonica dashboard
 - `HARMONICA_API_URL` (optional) — API base URL, defaults to `https://app.harmonica.chat`
 
+## CI
+
+`.github/workflows/ci.yml` — on push to `master`, on every PR, and **weekly on a schedule**.
+
+- **test** — `npm ci && npm test` on Node 20 (the `engines` floor) and 24.
+- **audit** — `npm audit --omit=dev --audit-level=high`, as a separate job so a red audit never hides test results.
+
+Two deliberate choices. `--omit=dev` because this package is **published**: the gate is what a consumer inherits via `npx -y harmonica-mcp`, and failing on a dev-only advisory trains people to ignore the check. The **weekly schedule** is the part that actually catches drift — advisories get published against code that has not changed, so a push-only gate would never see them. That is precisely how nine advisories accumulated in the v1 SDK tree unnoticed.
+
+The full audit including dev deps runs as an informational, non-blocking step, so a moderate advisory is still visible.
+
 ## Related Projects
 
 - `harmonica-web-app/` — Main Harmonica platform (API source, defines `/api/v1/` endpoints)
