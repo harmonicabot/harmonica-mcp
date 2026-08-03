@@ -49,7 +49,8 @@ export interface ApiSensemakingTopic {
 }
 
 export class HarmonicaClient {
-  private baseUrl: string;
+  /** Public so callers (e.g. tools.ts) can build user-facing URLs without their own env access. */
+  readonly baseUrl: string;
   private apiKey: string;
 
   constructor(config: HarmonicaClientConfig) {

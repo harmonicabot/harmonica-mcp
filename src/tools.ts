@@ -3,23 +3,6 @@ import { z } from 'zod';
 import { HarmonicaClient } from './client.js';
 import { parseMethodSpec, toChainConfig } from './methodSpec.js';
 
-const HARMONICA_API_URL = process.env.HARMONICA_API_URL || 'https://app.harmonica.chat';
-const HARMONICA_API_KEY = process.env.HARMONICA_API_KEY;
-
-if (!HARMONICA_API_KEY) {
-  console.error('Error: HARMONICA_API_KEY environment variable is required.');
-  console.error('Generate one at https://app.harmonica.chat (Profile → API Keys)');
-  process.exit(1);
-}
-
-// HAR-602 TEMP: client construction lives here (rather than index.ts, which would create a
-// circular import with tools.ts) only until Task 2 threads the client through createServer()
-// as a parameter instead of a module-level singleton. Task 2 deletes this.
-export const client = new HarmonicaClient({
-  baseUrl: HARMONICA_API_URL,
-  apiKey: HARMONICA_API_KEY,
-});
-
 /**
  * SEP-2549. The tool catalog is identical for every caller and only changes when we publish, so
  * callers may cache it and keep their prompt caches warm across reconnects. `public` is correct
@@ -36,7 +19,7 @@ export const TOOLS_LIST_TTL_MS = 60 * 60 * 1000;
  * there is only ever one connection, but HAR-602's HTTP transport, where per-request servers
  * genuinely matter, then needs no rework here.
  */
-type Registration = (server: McpServer) => void;
+type Registration = (server: McpServer, client: HarmonicaClient) => void;
 const registrations: Registration[] = [];
 
 /**
@@ -45,15 +28,22 @@ const registrations: Registration[] = [];
  * The `z.object()` wrap happens HERE, once, rather than at each of the 21 call sites. Raw-shape
  * `inputSchema` still works — the SDK auto-wraps it — but it is deprecated, and a single boundary
  * means a tool added later cannot land on the deprecated path by someone forgetting to wrap.
+ *
+ * Each handler also receives the `HarmonicaClient` for the connection it is being run on, rather
+ * than closing over a module-level singleton — HTTP (HAR-602) serves multiple callers with
+ * different API keys, so the client cannot be ambient module state.
  */
 function tool<S extends z.ZodRawShape>(
   name: string,
   description: string,
   shape: S,
-  handler: (args: z.infer<z.ZodObject<S>>) => Promise<{ content: Array<{ type: 'text'; text: string }> }>,
+  handler: (
+    args: z.infer<z.ZodObject<S>>,
+    client: HarmonicaClient,
+  ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>,
 ): void {
-  registrations.push((server) => {
-    server.registerTool(name, { description, inputSchema: z.object(shape) }, handler as never);
+  registrations.push((server, client) => {
+    server.registerTool(name, { description, inputSchema: z.object(shape) }, ((args: z.infer<z.ZodObject<S>>) => handler(args, client)) as never);
   });
 }
 
@@ -67,7 +57,7 @@ tool(
     query: z.string().optional().describe('Search by topic or goal'),
     limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
   },
-  async ({ status, query, limit }) => {
+  async ({ status, query, limit }, client) => {
     const result = await client.listSessions({ status, q: query, limit });
     const lines = result.data.map(
       (s) => `[${s.status}] ${s.topic} (${s.participant_count} participants) — ${s.id}`,
@@ -85,7 +75,7 @@ tool(
   {
     session_id: z.string().describe('Session ID (UUID)'),
   },
-  async ({ session_id }) => {
+  async ({ session_id }, client) => {
     const s = await client.getSession(session_id);
     const text = [
       `**${s.topic}**`,
@@ -113,7 +103,7 @@ tool(
     min_messages: z.number().optional().describe('Minimum user message count (skip bounces)'),
     sort: z.enum(['newest', 'oldest']).optional().describe('Sort by join date (default: oldest)'),
   },
-  async ({ session_id, since, name, min_messages, sort }) => {
+  async ({ session_id, since, name, min_messages, sort }, client) => {
     const result = await client.getSessionResponses(session_id, {
       mode: 'list',
       since,
@@ -145,7 +135,7 @@ tool(
     limit: z.number().optional().describe('Max number of participants to return'),
     sort: z.enum(['newest', 'oldest']).optional().describe('Sort by join date (default: oldest)'),
   },
-  async ({ session_id, since, name, min_messages, limit, sort }) => {
+  async ({ session_id, since, name, min_messages, limit, sort }, client) => {
     const result = await client.getSessionResponses(session_id, {
       since,
       name,
@@ -186,7 +176,7 @@ tool(
   {
     session_id: z.string().describe('Session ID (UUID)'),
   },
-  async ({ session_id }) => {
+  async ({ session_id }, client) => {
     const result = await client.getSessionSummary(session_id);
     const text = result.summary || 'No summary available yet (session may still be active).';
     return { content: [{ type: 'text', text }] };
@@ -199,7 +189,7 @@ tool(
   {
     session_id: z.string().describe('Session ID (UUID)'),
   },
-  async ({ session_id }) => {
+  async ({ session_id }, client) => {
     const result = await client.generateSummary(session_id);
     const summary = result.summary || 'Summary generation returned no content.';
     const text = `Summary generated for session ${result.session_id} (${result.generated_at}):\n\n${summary}`;
@@ -214,7 +204,7 @@ tool(
     query: z.string().describe('Search keywords'),
     status: z.enum(['active', 'completed']).optional().describe('Filter by status'),
   },
-  async ({ query, status }) => {
+  async ({ query, status }, client) => {
     const result = await client.listSessions({ q: query, status, limit: 20 });
     if (!result.data.length) {
       return { content: [{ type: 'text', text: `No sessions match "${query}".` }] };
@@ -235,7 +225,7 @@ tool(
   {
     session_id: z.string().describe('Session ID (UUID)'),
   },
-  async ({ session_id }) => {
+  async ({ session_id }, client) => {
     const result = await client.getSessionQuestions(session_id);
     if (!result.data.length) {
       return { content: [{ type: 'text', text: 'No pre-session questions configured.' }] };
@@ -275,7 +265,7 @@ tool(
       options: z.array(z.string()).optional().describe('Choices when `type` is "Options".'),
     })).optional().describe('Pre-session questions (e.g. name, role, email). Participants answer these before chatting. Pass `type: "Email"` and `required: true` to validate contact details up front.'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, project_id, distribution, questions }) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, project_id, distribution, questions }, client) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -346,7 +336,7 @@ tool(
       group_id: z.string().describe('Target group identifier'),
     })).optional().describe('Distribution targets for channel integrations'),
   },
-  async ({ session_id, ...updates }) => {
+  async ({ session_id, ...updates }, client) => {
     // Filter out undefined values
     const fields = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v !== undefined),
@@ -376,7 +366,7 @@ tool(
   'list_telegram_groups',
   'List Telegram groups registered to your Harmonica account for session distribution',
   {},
-  async () => {
+  async (_args, client) => {
     const groups = await client.listTelegramGroups();
 
     if (groups.length === 0) {
@@ -410,7 +400,7 @@ tool(
   'list_templates',
   "List Harmonica session templates available to your account (public global templates + templates you own / can access). Use to discover what facilitation patterns are configured in the platform — pass the returned id to create_session as template_id to launch a session with that template's stored facilitation_prompt. Returns id, title, description, and template_type (single | chain) for each.",
   {},
-  async () => {
+  async (_args, client) => {
     const result = await client.listTemplates();
 
     if (result.data.length === 0) {
@@ -449,7 +439,7 @@ tool(
     participant_id: z.string().describe('Unique participant identifier'),
     participant_name: z.string().describe('Display name for the participant'),
   },
-  async ({ session_id, content, participant_id, participant_name }) => {
+  async ({ session_id, content, participant_id, participant_name }, client) => {
     const result = await client.chat(session_id, { content, participant_id, participant_name });
     const finalNote = result.message.is_final ? '\n\n[Session complete for this participant]' : '';
     const text = `**Facilitator:** ${result.message.content}${finalNote}\n\nThread ID: ${result.thread_id}`;
@@ -469,7 +459,7 @@ tool(
       answer: z.string().describe('Answer text'),
     })).describe('Array of question answers'),
   },
-  async ({ session_id, participant_id, participant_name, answers }) => {
+  async ({ session_id, participant_id, participant_name, answers }, client) => {
     const result = await client.chatQuestions(session_id, { participant_id, participant_name, answers });
     const text = `**Facilitator:** ${result.message.content}\n\nThread ID: ${result.thread_id}`;
     return { content: [{ type: 'text', text }] };
@@ -488,7 +478,7 @@ tool(
     registry: z.string().optional().describe("Registry the spec came from. Default 'Open-Facilitation-Library/method-specs'."),
     force: z.boolean().optional().describe('Overwrite a template that has local admin edits since install. Default false.'),
   },
-  async ({ method_md, dry_run, template_id, update_if_exists, is_public, registry, force }) => {
+  async ({ method_md, dry_run, template_id, update_if_exists, is_public, registry, force }, client) => {
     let spec, install;
     try {
       spec = parseMethodSpec(method_md);
@@ -566,7 +556,7 @@ tool(
     title: z.string().describe('Project title'),
     description: z.string().optional().describe('Optional project description (markdown)'),
   },
-  async ({ title, description }) => {
+  async ({ title, description }, client) => {
     const project = await client.createProject({ title, description });
     const text = [
       `Project created!`,
@@ -587,7 +577,7 @@ tool(
     limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
     offset: z.number().min(0).optional().describe('Pagination offset (default 0)'),
   },
-  async ({ limit, offset }) => {
+  async ({ limit, offset }, client) => {
     const result = await client.listProjects({ limit, offset });
     if (!result.data.length) {
       return { content: [{ type: 'text', text: 'No projects found.' }] };
@@ -607,7 +597,7 @@ tool(
   {
     project_id: z.string().describe('Project (workspace) ID'),
   },
-  async ({ project_id }) => {
+  async ({ project_id }, client) => {
     const p = await client.getProject(project_id);
     const text = [
       `**${p.title}**`,
@@ -635,7 +625,7 @@ tool(
       .optional()
       .describe('New project description (markdown). Pass an empty string to clear it.'),
   },
-  async ({ project_id, title, description }) => {
+  async ({ project_id, title, description }, client) => {
     const values = Object.fromEntries(
       Object.entries({ title, description }).filter(([, v]) => v !== undefined),
     );
@@ -656,7 +646,7 @@ tool(
   {
     project_id: z.string().describe('Project (workspace) ID'),
   },
-  async ({ project_id }) => {
+  async ({ project_id }, client) => {
     const p = await client.deleteProject(project_id);
     const text = `Project "${p.title}" deleted (status: ${p.status}). Its sessions were not deleted.`;
     return { content: [{ type: 'text', text }] };
@@ -704,7 +694,7 @@ tool(
     enabled,
     reasoning_lens_enabled,
     knowledge_statements_enabled,
-  }) => {
+  }, client) => {
     const values = Object.fromEntries(
       Object.entries({
         slug,
@@ -736,7 +726,7 @@ tool(
         topic.slug ? `  Slug:       ${topic.slug}` : null,
         topic.theme ? `  Theme:      ${topic.theme}` : null,
         `  Published:  ${topic.enabled ? 'yes' : 'no'}`,
-        topic.enabled && topic.slug ? `  Public URL: ${HARMONICA_API_URL}/t/${topic.slug}` : null,
+        topic.enabled && topic.slug ? `  Public URL: ${client.baseUrl}/t/${topic.slug}` : null,
         ``,
         topic.enabled
           ? `The opinion landscape builds from the project's sessions (may take a moment). Listing on /explore needs admin approval.`
@@ -754,11 +744,11 @@ tool(
 // ─── Server factory ─────────────────────────────────────────────────
 
 /** Builds a fresh server per connection. See the note on `registrations` above. */
-export function createServer(version: string): McpServer {
+export function createServer(client: HarmonicaClient, version: string): McpServer {
   const server = new McpServer(
     { name: 'harmonica', version },
     { cacheHints: { 'tools/list': { ttlMs: TOOLS_LIST_TTL_MS, cacheScope: 'public' } } },
   );
-  for (const register of registrations) register(server);
+  for (const register of registrations) register(server, client);
   return server;
 }
