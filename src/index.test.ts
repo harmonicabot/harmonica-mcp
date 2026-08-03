@@ -121,7 +121,7 @@ describe('tools/list over stdio', () => {
     // but auto-wrapped to identical output, so only the source can tell you which overload is in
     // play. The guarantee is that there is exactly ONE registerTool call and it wraps — which is
     // also what stops a tool added later from quietly landing on the deprecated path.
-    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'index.ts'), 'utf8');
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'tools.ts'), 'utf8');
     const calls = src.match(/registerTool\(/g) ?? [];
     expect(calls, 'more than one registerTool call — the single wrapping boundary is gone').toHaveLength(1);
     expect(src).toMatch(/registerTool\(name, \{ description, inputSchema: z\.object\(shape\) \}/);
