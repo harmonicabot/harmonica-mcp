@@ -3,8 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 import { HarmonicaClient } from './client.js';
 import { parseMethodSpec, toChainConfig } from './methodSpec.js';
@@ -26,14 +26,46 @@ const client = new HarmonicaClient({
   apiKey: HARMONICA_API_KEY,
 });
 
-const server = new McpServer({
-  name: 'harmonica',
-  version: pkg.version,
-});
+/**
+ * SEP-2549. The tool catalog is identical for every caller and only changes when we publish, so
+ * callers may cache it and keep their prompt caches warm across reconnects. `public` is correct
+ * here precisely because nothing in the list varies by API key.
+ */
+const TOOLS_LIST_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Tool registrations, collected at module load and replayed onto each server the factory builds.
+ *
+ * v2's `serveStdio` takes a FACTORY rather than a built server, because the stateless core
+ * (SEP-2575/SEP-2567) lets the SDK construct one server per connection. Collecting registrations
+ * rather than binding them to a module-level singleton keeps that contract honest — over stdio
+ * there is only ever one connection, but HAR-602's HTTP transport, where per-request servers
+ * genuinely matter, then needs no rework here.
+ */
+type Registration = (server: McpServer) => void;
+const registrations: Registration[] = [];
+
+/**
+ * Registers one tool.
+ *
+ * The `z.object()` wrap happens HERE, once, rather than at each of the 21 call sites. Raw-shape
+ * `inputSchema` still works — the SDK auto-wraps it — but it is deprecated, and a single boundary
+ * means a tool added later cannot land on the deprecated path by someone forgetting to wrap.
+ */
+function tool<S extends z.ZodRawShape>(
+  name: string,
+  description: string,
+  shape: S,
+  handler: (args: z.infer<z.ZodObject<S>>) => Promise<{ content: Array<{ type: 'text'; text: string }> }>,
+): void {
+  registrations.push((server) => {
+    server.registerTool(name, { description, inputSchema: z.object(shape) }, handler as never);
+  });
+}
 
 // ─── Tools ───────────────────────────────────────────────────────────
 
-server.tool(
+tool(
   'list_sessions',
   'List Harmonica deliberation sessions you have access to',
   {
@@ -53,7 +85,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'get_session',
   'Get details of a specific Harmonica session',
   {
@@ -77,7 +109,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'list_participants',
   'List participants in a Harmonica session with metadata (name, message count, timestamps) but WITHOUT full conversations. Use this first to find participants, then get_responses with filters for specific ones.',
   {
@@ -108,7 +140,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'get_responses',
   'Get participant responses for a Harmonica session. Returns full conversation threads. Use filters to avoid fetching all data at once for large sessions.',
   {
@@ -154,7 +186,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'get_summary',
   'Get the AI-generated summary for a Harmonica session',
   {
@@ -167,7 +199,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'generate_summary',
   'Generate or regenerate the AI summary for a Harmonica session. Uses the session\'s custom summary_prompt if set, otherwise the default. Requires editor role.',
   {
@@ -181,7 +213,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'search_sessions',
   'Search Harmonica sessions by topic or goal keywords',
   {
@@ -203,7 +235,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'get_questions',
   'Get pre-session questions (data collection form) for a Harmonica session',
   {
@@ -224,7 +256,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'create_session',
   'Create a new Harmonica deliberation session and get a shareable join URL',
   {
@@ -282,7 +314,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'update_session',
   'Update session metadata. Mirrors the v1 PATCH /api/v1/sessions/[id] ALLOWED_UPDATE_FIELDS surface. Requires editor role.',
   {
@@ -346,7 +378,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'list_telegram_groups',
   'List Telegram groups registered to your Harmonica account for session distribution',
   {},
@@ -380,7 +412,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'list_templates',
   "List Harmonica session templates available to your account (public global templates + templates you own / can access). Use to discover what facilitation patterns are configured in the platform — pass the returned id to create_session as template_id to launch a session with that template's stored facilitation_prompt. Returns id, title, description, and template_type (single | chain) for each.",
   {},
@@ -414,7 +446,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'chat_message',
   'Send a message in a Harmonica session conversation and get the AI facilitator response. Creates a new participant thread if first message.',
   {
@@ -431,7 +463,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'submit_questions',
   'Submit pre-session question answers and start a facilitated conversation. Returns the opening facilitator message.',
   {
@@ -450,7 +482,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'install_method_spec',
   'Install an OFL method spec (the contents of a method.md file) as a runnable Harmonica chain template. Pass the full method.md text as method_md. Use dry_run to preview the generated chain_config without writing anything. Chain templates need a paid (Pro/LTD) account; Free is capped at 3 steps.',
   {
@@ -533,7 +565,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'create_project',
   'Create a Harmonica project (workspace) you own. Use the returned project ID to publish it as a public sensemaking topic via publish_sensemaking_topic, or to scope sessions/templates to the project. Reuse an existing project by passing its ID to those tools instead of creating a new one.',
   {
@@ -554,7 +586,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'list_projects',
   'List the Harmonica projects (workspaces) you have access to. A project groups related sessions and can be published as a public sensemaking topic. Returns title + id for each.',
   {
@@ -575,7 +607,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'get_project',
   'Get a single Harmonica project (workspace) by id, including the ids of the sessions linked to it.',
   {
@@ -597,7 +629,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'update_project',
   'Rename a Harmonica project (workspace) or update its description. Requires editor access. Pass at least one of title / description.',
   {
@@ -624,7 +656,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'delete_project',
   'Soft-delete a Harmonica project (workspace): it is archived (status=deleted) and the sessions inside it are left intact, just ungrouped. Requires owner access. This never deletes any sessions.',
   {
@@ -637,7 +669,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   'publish_sensemaking_topic',
   "Author and publish a Harmonica project as a public sensemaking topic — the /explore hub entry + the /t/[slug] opinion-landscape page built from the project's sessions. Pass enabled: true with a slug (here or already saved) to publish. Requires editor access to the project. Listing on /explore is a separate admin-curated step.",
   {
@@ -727,12 +759,18 @@ server.tool(
 
 // ─── Start ───────────────────────────────────────────────────────────
 
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+/** Builds a fresh server per connection. See the note on `registrations` above. */
+function createServer(): McpServer {
+  const server = new McpServer(
+    { name: 'harmonica', version: pkg.version },
+    { cacheHints: { 'tools/list': { ttlMs: TOOLS_LIST_TTL_MS, cacheScope: 'public' } } },
+  );
+  for (const register of registrations) register(server);
+  return server;
 }
 
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
+serveStdio(createServer, {
+  onerror: (error) => {
+    console.error('MCP transport error:', error);
+  },
 });
