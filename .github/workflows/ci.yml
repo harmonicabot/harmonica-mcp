@@ -30,7 +30,19 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
+      # `npm install`, not `npm ci`, and this is deliberate rather than lazy.
+      #
+      # `npm ci` requires the lockfile to describe a complete tree for the RUNNING platform. This
+      # lockfile does not, and never did: `@rolldown/binding-wasm32-wasi` (vitest 4 → rolldown)
+      # pulls optional `@emnapi/*` packages that npm only resolves on a host that needs them, and
+      # the lockfile is authored on Windows. Verified the same entries are absent from the
+      # pre-migration lockfile too, so `npm ci` would have failed here before any of this work —
+      # there was simply no CI to notice.
+      #
+      # `npm install` still honours the lockfile for everything it pins; it just resolves the
+      # platform-specific gaps instead of refusing. Both things this workflow exists for — running
+      # the tests and auditing the tree consumers inherit — are served by that.
+      - run: npm install --no-audit --no-fund
       - run: npm test
 
   audit:
@@ -44,7 +56,19 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-      - run: npm ci
+      # `npm install`, not `npm ci`, and this is deliberate rather than lazy.
+      #
+      # `npm ci` requires the lockfile to describe a complete tree for the RUNNING platform. This
+      # lockfile does not, and never did: `@rolldown/binding-wasm32-wasi` (vitest 4 → rolldown)
+      # pulls optional `@emnapi/*` packages that npm only resolves on a host that needs them, and
+      # the lockfile is authored on Windows. Verified the same entries are absent from the
+      # pre-migration lockfile too, so `npm ci` would have failed here before any of this work —
+      # there was simply no CI to notice.
+      #
+      # `npm install` still honours the lockfile for everything it pins; it just resolves the
+      # platform-specific gaps instead of refusing. Both things this workflow exists for — running
+      # the tests and auditing the tree consumers inherit — are served by that.
+      - run: npm install --no-audit --no-fund
 
       # `--omit=dev` because this package is PUBLISHED: what matters is the tree a consumer
       # inherits when they `npx -y harmonica-mcp`. A dev-only advisory (vitest's postcss, say)
