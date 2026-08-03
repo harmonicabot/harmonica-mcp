@@ -49,13 +49,24 @@ export interface ApiSensemakingTopic {
 }
 
 export class HarmonicaClient {
-  /** Public so callers (e.g. tools.ts) can build user-facing URLs without their own env access. */
-  readonly baseUrl: string;
+  private baseUrl: string;
   private apiKey: string;
 
   constructor(config: HarmonicaClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.apiKey = config.apiKey;
+  }
+
+  /**
+   * Builds a public-facing URL under this client's base URL, e.g. for a session/topic link shown
+   * back to the caller. A purpose-built accessor rather than exposing `baseUrl` itself — callers
+   * get exactly the derived string they need without a raw value to build arbitrary URLs against
+   * (this package publishes `dist/`, so `client.js` is reachable by deep import). `baseUrl` never
+   * carries a trailing slash (stripped above), so a leading slash is enforced on `path` here to
+   * avoid ever concatenating into a double slash regardless of what the caller passes.
+   */
+  publicUrl(path: string): string {
+    return `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {

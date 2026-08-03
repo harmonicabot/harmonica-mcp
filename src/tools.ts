@@ -726,7 +726,7 @@ tool(
         topic.slug ? `  Slug:       ${topic.slug}` : null,
         topic.theme ? `  Theme:      ${topic.theme}` : null,
         `  Published:  ${topic.enabled ? 'yes' : 'no'}`,
-        topic.enabled && topic.slug ? `  Public URL: ${client.baseUrl}/t/${topic.slug}` : null,
+        topic.enabled && topic.slug ? `  Public URL: ${client.publicUrl(`/t/${topic.slug}`)}` : null,
         ``,
         topic.enabled
           ? `The opinion landscape builds from the project's sessions (may take a moment). Listing on /explore needs admin approval.`
