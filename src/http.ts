@@ -55,7 +55,10 @@ async function writeWebResponse(res: ServerResponse, web: Response, req: Incomin
   // stream running forever. Nothing streams today, which is exactly why this is worth having
   // before the first tool that does makes it a real leak instead of a theoretical one.
   const cancelOnClose = () => {
-    void reader.cancel();
+    // Same bug class as the unhandled `handler.close()` rejection below: a `cancel()` that rejects
+    // with no handler crashes the process on an unhandled rejection (Node 24 default). Dormant
+    // today only because nothing streams yet — the exact condition that will stop being true.
+    reader.cancel().catch((error) => console.error('stream reader cancel error:', error));
   };
   req.once('close', cancelOnClose);
   try {
@@ -74,17 +77,20 @@ const json = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });
 
 async function respondTooLarge(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  // Discard whatever the client is still sending rather than destroying the socket outright.
-  // Verified empirically (both `fetch` and `node:http.request`, a truthful oversized
-  // Content-Length): destroying the socket right after `res.end()` reliably produced a
-  // client-visible ECONNRESET instead of the 413 — a socket destroyed while a large amount of the
-  // peer's data is still unread in the kernel receive buffer sends an abortive RST instead of a
-  // graceful close, and that RST can beat (or wipe) the response we just wrote. `req.resume()`
-  // discards without buffering, so the memory bound this whole guard exists for still holds — the
-  // client can keep pushing bytes, but they land nowhere and cost nothing but the CPU to discard.
-  // `Connection: close` tells Node to close the socket once the response (and any remaining drain)
-  // finishes, which is what actually stops this connection from being reused, deterministically
-  // rather than via a destroy() that raced the response delivery.
+  // The memory bound is absolute: `req.resume()` discards without buffering, so nothing here ever
+  // holds more than MAX_BODY_BYTES in application memory, no matter what the caller sends or how
+  // this connection ends. Delivery of the 413 itself is best-effort, not guaranteed. Destroying the
+  // socket outright (tried first) reliably produced a client-visible ECONNRESET instead of the 413.
+  // Draining via `resume()` instead of destroying is strictly better and is what's here now — but
+  // it is not a fix for the underlying race, only a narrower one: a socket closed while a large
+  // amount of the peer's data is still unread in the kernel receive buffer sends an abortive RST
+  // instead of a graceful close regardless of what userland does, and an actively-transmitting
+  // flood (verified at 5x, 20x, and 100x MAX_BODY_BYTES) hits that essentially every time, with or
+  // without `resume()`. Accepted deliberately: a caller flooding this endpoint with an oversized
+  // body is not owed a tidy error, only a server that doesn't buffer the flood into memory. The
+  // stronger fix — drain to the request's 'end' before responding, so there's nothing left unread
+  // when the socket closes — needs a timeout and a decision about bodies that never end, which is
+  // out of scope here and filed as a follow-up.
   req.resume();
   res.setHeader('connection', 'close');
   await writeWebResponse(res, json(413, { error: `body exceeds the ${MAX_BODY_BYTES}-byte limit` }), req);
