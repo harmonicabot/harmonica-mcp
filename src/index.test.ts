@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
@@ -135,5 +135,55 @@ describe('tools/list over stdio', () => {
     });
     expect(res.error?.code).toBe(-32602);
     expect(res.error?.message).toContain('clientCapabilities');
+  });
+});
+
+/**
+ * These are the highest-value tests in this file, and the reason is worth stating: every other
+ * failure mode here is loud. A broken tool schema, a dropped registration, a bad envelope — all
+ * surface immediately to whoever is using the thing.
+ *
+ * These two misconfigurations are silent. An HTTP server booted with a server-side
+ * HARMONICA_API_KEY works perfectly, and serves every anonymous caller as the deploy owner's
+ * account. One booted without MCP_ALLOWED_HOSTS also works perfectly, with no DNS-rebinding
+ * protection whatsoever. Nothing downstream looks wrong in either case, which is precisely why
+ * the guard has to be at startup and why it is worth a test that the guard still fires.
+ */
+describe('boot guards', () => {
+  /** Boot the built binary under a given env and report how it exited. */
+  function boot(env: Record<string, string | undefined>) {
+    const result = spawnSync(process.execPath, [ENTRY], {
+      // Explicit undefined clears anything inherited from the developer's own shell, so the test
+      // asserts on the env it declares rather than on whatever happens to be exported locally.
+      env: { ...process.env, HARMONICA_API_KEY: undefined, MCP_TRANSPORT: undefined, ...env },
+      encoding: 'utf8',
+      timeout: 15_000,
+      input: '',
+    });
+    return { code: result.status, stderr: result.stderr ?? '' };
+  }
+
+  it('refuses HTTP mode when HARMONICA_API_KEY is set', () => {
+    const { code, stderr } = boot({
+      MCP_TRANSPORT: 'http',
+      MCP_ALLOWED_HOSTS: 'example.com',
+      HARMONICA_API_KEY: 'leftover-from-an-stdio-config',
+    });
+    expect(code).toBe(1);
+    expect(stderr).toMatch(/HARMONICA_API_KEY/);
+  });
+
+  it('refuses HTTP mode without MCP_ALLOWED_HOSTS', () => {
+    const { code, stderr } = boot({ MCP_TRANSPORT: 'http' });
+    expect(code).toBe(1);
+    expect(stderr).toMatch(/MCP_ALLOWED_HOSTS/);
+  });
+
+  it('still requires HARMONICA_API_KEY for stdio', () => {
+    // The other side of the switch: HTTP mode refusing the key must not have made it optional for
+    // stdio, where it is still the only way the server can authenticate at all.
+    const { code, stderr } = boot({});
+    expect(code).toBe(1);
+    expect(stderr).toMatch(/HARMONICA_API_KEY/);
   });
 });
