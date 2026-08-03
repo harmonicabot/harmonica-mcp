@@ -685,55 +685,34 @@ both end with one account serving every anonymous caller."
 
 ---
 
-### Task 5: Deploy to Railway
+### Task 5: Deploy to Railway — **CUT 2026-08-03**
 
-Confirm with Artem before creating the service — this is the first outward-facing piece and the domain is his call.
+Not to be executed. The heading stays so task numbering matches the ledger at
+`.superpowers/sdd/2026-08-03-har-602-http-transport-plan/progress.md`.
 
-**Files:**
-- Modify: `CLAUDE.md` (deployment section)
+**Why.** HAR-1376 (filed 2026-07-18, approved design + 13-task plan in Pro at
+`docs/plans/2026-07-18-har-1376-hosted-mcp-{design,plan}.md`) already owns Harmonica's hosted MCP
+endpoint. Its slice 1 is the same bearer-auth streamable-HTTP surface, but served from inside Pro
+against the server libs in-process rather than proxying `/api/v1` over the network — and only its
+slice 2 (Auth0 OAuth) can be a Claude.ai custom connector, which a bearer-only Railway service
+cannot reach at all. Running both would mean two hosted MCP endpoints for one product.
 
-- [ ] **Step 1: Create the service**
+**So the plan ends at Task 4.** Tasks 1-4 ship the transport in the published package, which is
+still worth having: a self-hoster gets HTTP for free, and the boot guards make that safe unattended.
 
-Railway project: the Harmonica ecosystem project, per the workspace convention that Harmonica services run on Railway. Deploy from `harmonicabot/harmonica-mcp`, branch `master`.
+**What HAR-1376 inherits from the work done here:** its Task 6 needs a tool manifest dumped from
+this repo for the parity contract test. After Tasks 1-2 that is a straight import of
+`createServer(client, version)` from `src/tools.ts` — the plan's fallback of transcribing 20
+entries by hand is no longer needed.
 
-Variables — note what is deliberately absent:
-
-```
-MCP_TRANSPORT=http
-MCP_ALLOWED_HOSTS=<the generated Railway domain>
-HARMONICA_API_URL=https://app.harmonica.chat
-# HARMONICA_API_KEY is deliberately NOT set. Setting it makes the service refuse to boot.
-```
-
-`PORT` is injected by Railway; do not set it.
-
-- [ ] **Step 2: Verify the deploy from outside**
-
-```bash
-curl -s https://<domain>/healthz
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<domain>/mcp \
-  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-curl -s -X POST https://<domain>/mcp \
-  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-  -H "authorization: Bearer $REAL_KEY" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 200
-```
-Expected: `ok`, then `401`, then 21 tools.
-
-- [ ] **Step 3: Prove the boot guard fires in the real environment**
-
-Temporarily set `HARMONICA_API_KEY` in Railway and confirm the deploy **fails** with the expected message, then remove it. A guard that has only ever been tested locally is a guard nobody has tested.
-
-- [ ] **Step 4: Record the deployment and close the issue**
-
-Add the domain and variables to `CLAUDE.md`, commit, and comment on HAR-602 with the URL, the client config snippet, and the note that it is superseded by HAR-484.
+On finishing Task 4: comment on HAR-602 with the shipped env vars and the self-hosting snippet, and
+close it. Do **not** create a Railway service.
 
 ---
 
 ## Self-review
 
-**Spec coverage:** per-request bearer auth → Tasks 2, 3. Mode switch, stdio default → Task 4. Both boot failures → Task 4. `POST /mcp` + `GET /healthz` → Task 3. Host validation → Task 3. Three-file split → Tasks 1, 3, 4. No new deps → Global Constraints. SEP-2243 → Task 3 Step 5. Railway → Task 5. Out-of-scope items (OAuth, scale, rate limiting) have no tasks, correctly.
+**Spec coverage:** per-request bearer auth → Tasks 2, 3. Mode switch, stdio default → Task 4. Both boot failures → Task 4. `POST /mcp` + `GET /healthz` → Task 3. Host validation → Task 3. Three-file split → Tasks 1, 3, 4. No new deps → Global Constraints. SEP-2243 → Task 3 Step 5. Out-of-scope items (OAuth, scale, rate limiting) have no tasks, correctly. Deployment was Task 5 and is now **cut** — HAR-1376 owns the hosted endpoint; the plan ends at Task 4.
 
 **Types:** `createServer(client, version)` is defined in Task 2 and used with that order in Tasks 3 and 4. `HttpServerOptions` / `HttpServerHandle` are defined in Task 3 and consumed in Task 4. `bearerFrom` is used in two places within Task 3 only.
 
