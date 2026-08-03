@@ -6,7 +6,9 @@ Design, 2026-08-03. Approved before implementation.
 
 Web-based MCP clients cannot spawn a local process, so they need a URL. Today `harmonica-mcp` is stdio-only: `npx -y harmonica-mcp` with `HARMONICA_API_KEY` in the environment.
 
-This adds a hosted HTTP endpoint. It is deliberately **interim** — HAR-484 embeds MCP directly into `harmonica-web-app`, and this is expected to be deprecated when that lands. Scope is bounded accordingly.
+This adds an HTTP transport to the published package, so anyone running their own instance can serve it over a URL.
+
+**Scope narrowed 2026-08-03.** Harmonica's own hosted endpoint is HAR-1376's job: a streamable-HTTP MCP inside Pro, calling the server libs in-process, with Auth0 OAuth in its second slice. That is the only path that reaches Claude.ai custom connectors, and standing up a second hosted endpoint here would duplicate it with a strictly worse implementation — a network hop back to `/api/v1` instead of an in-process call. So this design keeps the transport and drops the deployment. (The framing below originally named HAR-484 as the successor. HAR-1376 is the live one; HAR-484 is the older exploration.)
 
 ## Corrections to HAR-602's implementation notes
 
@@ -22,7 +24,7 @@ The issue was written 2026-04-03 and three of its notes are now wrong. They are 
 
 ## Decisions
 
-**Auth: per-request API key.** Each caller sends its own Harmonica key as `Authorization: Bearer <key>`; a client is constructed per request. No OAuth — that is HAR-484's job, and building it here means building it twice. Nothing is wasted, because HAR-484 needs the same per-request identity.
+**Auth: per-request API key.** Each caller sends its own Harmonica key as `Authorization: Bearer <key>`; a client is constructed per request. No OAuth — that is HAR-1376's job, and building it here means building it twice. Nothing is wasted, because HAR-1376 needs the same per-request identity.
 
 **Transport selection: one binary, mode switch.** `MCP_TRANSPORT=http` or `--http`; stdio otherwise. One published artifact, default unchanged, self-hosters gain HTTP for free. Rejected: a second `bin` (two artifacts to keep in step) and a separate deploy repo (duplicated wiring, published package gains nothing).
 
@@ -109,10 +111,12 @@ The last two matter most. Everything else fails visibly in normal use; those two
 
 ## Out of scope
 
-- **OAuth** — HAR-484.
+- **OAuth** — HAR-1376 (slice 2).
 - **Multi-instance / horizontal scale** — the stateless core permits it; nothing needs it yet.
 - **Rate limiting** — the Harmonica API already limits per key, and every caller here is authenticated as themselves.
 
 ## Deployment
 
-A Railway service, per the workspace convention that Harmonica ecosystem services run there. `MCP_TRANSPORT=http`, `MCP_ALLOWED_HOSTS` set to the Railway domain, and deliberately **no** `HARMONICA_API_KEY`.
+**None from this issue.** Harmonica's hosted endpoint is HAR-1376's slice 1.
+
+What ships here is the capability, not an instance: a self-hoster sets `MCP_TRANSPORT=http` and `MCP_ALLOWED_HOSTS`, leaves `HARMONICA_API_KEY` unset, and runs it wherever they like. The two boot failures above are what make that safe to do unattended — they are the whole reason this is publishable rather than a local experiment.
