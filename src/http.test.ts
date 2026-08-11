@@ -51,7 +51,7 @@ describe('http transport', () => {
     });
     expect(res.status).toBe(200);
     const body = parseBody(await res.text());
-    expect(body.result.tools).toHaveLength(21);
+    expect(body.result.tools).toHaveLength(22);
   });
 
   // `Host` is a forbidden request-header name (WHATWG Fetch spec), so `fetch` silently overwrites

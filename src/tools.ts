@@ -25,7 +25,7 @@ const registrations: Registration[] = [];
 /**
  * Registers one tool.
  *
- * The `z.object()` wrap happens HERE, once, rather than at each of the 21 call sites. Raw-shape
+ * The `z.object()` wrap happens HERE, once, rather than at each of the 22 call sites. Raw-shape
  * `inputSchema` still works — the SDK auto-wraps it — but it is deprecated, and a single boundary
  * means a tool added later cannot land on the deprecated path by someone forgetting to wrap.
  *
@@ -649,6 +649,32 @@ tool(
   async ({ project_id }, client) => {
     const p = await client.deleteProject(project_id);
     const text = `Project "${p.title}" deleted (status: ${p.status}). Its sessions were not deleted.`;
+    return { content: [{ type: 'text', text }] };
+  },
+);
+
+tool(
+  'create_unconference_topic',
+  'Create a draft topic in an Unconference project. The topic is added to the operational record and mirrored to the connected brain repository. Requires editor access.',
+  {
+    project_id: z.string().describe('Unconference project ID'),
+    title: z.string().min(1).max(240).describe('Canonical draft topic wording'),
+    body: z.string().max(10_000).optional().describe('Optional public-safe context for the topic'),
+  },
+  async ({ project_id, title, body }, client) => {
+    const topic = await client.createUnconferenceTopic(project_id, {
+      title: title.trim(),
+      body: body?.trim() || undefined,
+    });
+    const text = [
+      'Unconference draft topic created!',
+      '',
+      `  Topic ID: ${topic.topicId}`,
+      `  Item ID:  ${topic.itemId}`,
+      `  Status:   ${topic.status}`,
+      '',
+      'The topic will be mirrored to the project brain repository.',
+    ].join('\n');
     return { content: [{ type: 'text', text }] };
   },
 );
