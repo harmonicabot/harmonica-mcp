@@ -424,6 +424,17 @@ export class HarmonicaClient {
     });
   }
 
+  async createUnconferenceTopic(projectId: string, values: { title: string; body?: string }) {
+    return this.request<{
+      itemId: string;
+      topicId: string;
+      status: string;
+    }>(`/projects/${projectId}/unconference/topics`, {
+      method: 'POST',
+      body: JSON.stringify(values),
+    });
+  }
+
   async getSensemakingTopic(projectId: string) {
     return this.request<{ data: ApiSensemakingTopic | null }>(
       `/projects/${projectId}/sensemaking`,

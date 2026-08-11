@@ -208,3 +208,23 @@ describe('HarmonicaClient project management (HAR-1298)', () => {
     expect('project_id' in body).toBe(true);
   });
 });
+
+describe('HarmonicaClient.createUnconferenceTopic', () => {
+  it('POSTs a draft topic to the project Unconference endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ itemId: 'item-1', topicId: 'topic-item-1', status: 'draft' }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const client = new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+    const result = await client.createUnconferenceTopic('ws-1', { title: 'A topic', body: 'Context' });
+
+    expect(result.topicId).toBe('topic-item-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/projects/ws-1/unconference/topics');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({ title: 'A topic', body: 'Context' });
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer hm_live_test');
+  });
+});

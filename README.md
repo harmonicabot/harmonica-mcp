@@ -59,6 +59,7 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `get_project` | Get a project by id, with the ids of its linked sessions |
 | `update_project` | Rename a project or update its description (editor access) |
 | `delete_project` | Soft-delete a project; its sessions are left intact (owner access) |
+| `create_unconference_topic` | Create a draft topic in an Unconference project and mirror it to the connected brain repository (editor access) |
 | `publish_sensemaking_topic` | Publish a project as a public sensemaking topic (`/explore` + `/t/[slug]`) |
 
 ## From Source
