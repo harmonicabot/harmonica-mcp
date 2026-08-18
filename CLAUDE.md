@@ -43,7 +43,7 @@ This is a **client** of the Harmonica REST API (`/api/v1/`), which lives in `har
 
 Source files:
 - `src/index.ts` — bootstrap only. Reads env, picks the transport, wires it. No tool definitions.
-- `src/tools.ts` — the 22 tool definitions and `createServer(client, version)`. Pure: no env reads, no filesystem, no transport.
+- `src/tools.ts` — the 24 tool definitions and `createServer(client, version)`. Pure: no env reads, no filesystem, no transport.
 - `src/http.ts` — `startHttpServer()`. `node:http` plus the SDK's web-standard handler. Loaded lazily, so a stdio run never pays for it.
 - `src/client.ts` — HTTP client wrapping the Harmonica REST API. All methods throw on HTTP errors.
 - `src/methodSpec.ts` — parses OFL method specs (`method.md`) into chain configs.
@@ -81,6 +81,8 @@ Three things to know before editing `index.ts`:
 | `create_project` | Create a project (workspace) you own |
 | `list_projects` | List projects (workspaces) you have access to |
 | `get_project` | Get a project by id, with the ids of its linked sessions |
+| `list_meetings` | List personal calendar meetings captured by the Harmonica notetaker |
+| `get_transcript` | Get the persisted transcript and speaker turns for a personal calendar meeting |
 | `update_project` | Rename a project or update its description (editor role) |
 | `delete_project` | Soft-delete a project; contained sessions are left intact (owner role) |
 | `create_unconference_topic` | Create a draft topic in an Unconference project and mirror it to the connected brain repository (editor access) |
@@ -112,7 +114,7 @@ The McpServer version is read from `package.json` at startup. Bump with `npm ver
 
 ## HTTP transport
 
-`MCP_TRANSPORT=http` (or `--http`) serves the same 22 tools over Streamable HTTP instead of stdio. **stdio remains the default**, so existing `npx -y harmonica-mcp` installs are untouched.
+`MCP_TRANSPORT=http` (or `--http`) serves the same 24 tools over Streamable HTTP instead of stdio. **stdio remains the default**, so existing `npx -y harmonica-mcp` installs are untouched.
 
 Each request carries its own key — `Authorization: Bearer <harmonica-api-key>` — and gets its own `HarmonicaClient` and its own server instance, so two callers with different keys can be in flight at once and nothing is shared between them.
 

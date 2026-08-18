@@ -115,6 +115,43 @@ describe('HarmonicaClient.publicUrl', () => {
   });
 });
 
+describe('HarmonicaClient meeting capture', () => {
+  const client = () =>
+    new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
+
+  it('listMeetings GETs the owner-scoped meetings endpoint with filters', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ id: 'meeting-1' }], pagination: { total: 1, limit: 5, offset: 2 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const result = await client().listMeetings({ status: 'ready', limit: 5, offset: 2 });
+
+    expect(result.data[0].id).toBe('meeting-1');
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://app.harmonica.chat/api/v1/meetings?status=ready&limit=5&offset=2',
+    );
+  });
+
+  it('getTranscript GETs the meeting transcript endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'transcript-1', utterances: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const result = await client().getTranscript('meeting-1');
+
+    expect(result.id).toBe('transcript-1');
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://app.harmonica.chat/api/v1/meetings/meeting-1/transcript',
+    );
+  });
+});
+
 describe('HarmonicaClient project management (HAR-1298)', () => {
   const client = () =>
     new HarmonicaClient({ baseUrl: 'https://app.harmonica.chat', apiKey: 'hm_live_test' });
