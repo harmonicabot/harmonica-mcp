@@ -78,7 +78,7 @@ describe('tools/list over stdio', () => {
   it('registers every tool exactly once', async () => {
     const { result } = await request(undefined);
     const names = result.tools.map((t: any) => t.name);
-    expect(names).toHaveLength(22);
+    expect(names).toHaveLength(24);
     expect(new Set(names).size).toBe(names.length);
     // Spot-check across the surface rather than pinning the whole list, which would make every
     // new tool a test edit. These four span sessions, chat, method specs and projects.

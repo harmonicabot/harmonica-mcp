@@ -138,6 +138,58 @@ export class HarmonicaClient {
     }>(`/sessions${qs ? `?${qs}` : ''}`);
   }
 
+  async listMeetings(params?: {
+    status?: 'scheduled' | 'joining' | 'in_call' | 'recording' | 'transcribing' | 'ready' | 'failed' | 'cancelled';
+    limit?: number;
+    offset?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+
+    return this.request<{
+      data: Array<{
+        id: string;
+        title: string;
+        meeting_url: string;
+        meeting_provider: string;
+        starts_at: string;
+        ends_at: string | null;
+        timezone: string | null;
+        status: string;
+        error_code: string | null;
+        error_message: string | null;
+      }>;
+      pagination: { total: number; limit: number; offset: number };
+    }>(`/meetings${qs ? `?${qs}` : ''}`);
+  }
+
+  async getTranscript(meetingId: string) {
+    return this.request<{
+      id: string;
+      meeting_id: string;
+      provider: string;
+      model: string;
+      language: string | null;
+      status: string;
+      error_code: string | null;
+      error_message: string | null;
+      completed_at: string | null;
+      utterances: Array<{
+        sequence: number;
+        speaker_id: string | null;
+        speaker_name: string | null;
+        speaker_email: string | null;
+        start_ms: number | null;
+        end_ms: number | null;
+        text: string;
+        language: string | null;
+      }>;
+    }>(`/meetings/${meetingId}/transcript`);
+  }
+
   async getSession(id: string) {
     return this.request<{
       id: string;

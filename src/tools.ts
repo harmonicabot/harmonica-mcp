@@ -94,6 +94,42 @@ tool(
 );
 
 tool(
+  'list_meetings',
+  'List personal calendar meetings captured by the Harmonica notetaker',
+  {
+    status: z.enum(['scheduled', 'joining', 'in_call', 'recording', 'transcribing', 'ready', 'failed', 'cancelled']).optional().describe('Filter by meeting status'),
+    limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
+    offset: z.number().min(0).optional().describe('Pagination offset'),
+  },
+  async ({ status, limit, offset }, client) => {
+    const result = await client.listMeetings({ status, limit, offset });
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(result, null, 2),
+      }],
+    };
+  },
+);
+
+tool(
+  'get_transcript',
+  'Get the persisted transcript and speaker turns for one personal calendar meeting',
+  {
+    meeting_id: z.string().describe('Meeting ID (UUID)'),
+  },
+  async ({ meeting_id }, client) => {
+    const result = await client.getTranscript(meeting_id);
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(result, null, 2),
+      }],
+    };
+  },
+);
+
+tool(
   'list_participants',
   'List participants in a Harmonica session with metadata (name, message count, timestamps) but WITHOUT full conversations. Use this first to find participants, then get_responses with filters for specific ones.',
   {

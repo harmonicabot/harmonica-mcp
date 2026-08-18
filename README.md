@@ -57,6 +57,8 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `create_project` | Create a project (workspace) to group related sessions |
 | `list_projects` | List the projects (workspaces) you have access to |
 | `get_project` | Get a project by id, with the ids of its linked sessions |
+| `list_meetings` | List personal calendar meetings captured by the Harmonica notetaker |
+| `get_transcript` | Get the persisted transcript and speaker turns for a personal calendar meeting |
 | `update_project` | Rename a project or update its description (editor access) |
 | `delete_project` | Soft-delete a project; its sessions are left intact (owner access) |
 | `create_unconference_topic` | Create a draft topic in an Unconference project and mirror it to the connected brain repository (editor access) |
