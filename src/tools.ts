@@ -1,7 +1,84 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { HarmonicaClient } from './client.js';
+import { HarmonicaClient, type ChainOutcome, type WidgetSpec } from './client.js';
 import { parseMethodSpec, toChainConfig } from './methodSpec.js';
+
+/**
+ * Render the chain bootstrap outcome as text (HAR-1582).
+ *
+ * A chain template that fails to bootstrap still yields a real, paid-for
+ * session, so the API returns 201 either way. Without this the tool printed an
+ * unconditional "Session created!" and the caller had to query the database to
+ * discover the methodology was never running — the silent degradation the issue
+ * was filed about. Every non-started status therefore says so in plain words
+ * AND names the fix, because the caller is usually an agent that can apply it.
+ */
+export function describeChainOutcome(chain: ChainOutcome): string[] {
+  switch (chain.status) {
+    case 'started':
+    case 'resumed':
+      return [
+        `  Chain:    ${chain.status} — step 1 is live at the join URL above.`,
+        `            Instance ${chain.chainInstanceId}`,
+      ];
+    case 'roster_incomplete':
+      return [
+        `  Chain:    NOT STARTED — this template assigns roles and no roster was given.`,
+        `            ${chain.message}`,
+        `            The session exists and works, but it is a single session, not a chain.`,
+        `            Re-create it with a \`roster\` to run the methodology as intended.`,
+      ];
+    case 'step_cap_exceeded':
+      return [
+        `  Chain:    NOT STARTED — this plan's chain step limit was reached.`,
+        `            ${chain.message}`,
+        `            The session exists as a single session.`,
+      ];
+    case 'project_cap_exceeded':
+      return [
+        `  Chain:    NOT STARTED — a chain needs its own project and the active-project limit was reached.`,
+        `            ${chain.message}`,
+        `            Archive or delete a project, then re-create this session.`,
+      ];
+    case 'unsupported':
+      return [
+        `  Chain:    NOT STARTED — this template's chain strategy is not supported.`,
+        `            The session exists as a single session.`,
+      ];
+    case 'noop':
+      return [`  Chain:    not applicable (${chain.reason}).`];
+  }
+}
+
+/**
+ * Render a facilitator widget as text (HAR-441 / HAR-910).
+ *
+ * The facilitator mirrors the widget into the prose of `content`, so a caller
+ * that drops this field is told to "drag to rank these" with nothing to drag.
+ * An MCP caller cannot draw a control, but it can be shown the options — which
+ * is enough to answer in the next `chat_message`.
+ */
+export function describeWidget(spec: WidgetSpec): string[] {
+  const { type, props } = spec.root;
+  const out = [``, `[${type}]`];
+  const label = typeof props.label === 'string' ? props.label
+    : typeof props.instruction === 'string' ? props.instruction
+    : null;
+  if (label) out.push(label);
+
+  const options = Array.isArray(props.options) ? props.options
+    : Array.isArray(props.items) ? props.items
+    : null;
+  if (options) options.forEach((o, i) => out.push(`  ${i + 1}. ${String(o)}`));
+
+  if (typeof props.min === 'number' && typeof props.max === 'number') {
+    const lo = typeof props.minLabel === 'string' ? ` (${props.minLabel})` : '';
+    const hi = typeof props.maxLabel === 'string' ? ` (${props.maxLabel})` : '';
+    out.push(`  Scale ${props.min}${lo} to ${props.max}${hi}`);
+  }
+  out.push(`Answer in your next chat_message.`);
+  return out;
+}
 
 /**
  * SEP-2549. The tool catalog is identical for every caller and only changes when we publish, so
@@ -300,8 +377,14 @@ tool(
       required: z.boolean().optional().describe('Whether the field is required. Defaults to false.'),
       options: z.array(z.string()).optional().describe('Choices when `type` is "Options".'),
     })).optional().describe('Pre-session questions (e.g. name, role, email). Participants answer these before chatting. Pass `type: "Email"` and `required: true` to validate contact details up front.'),
+    roster: z.array(z.object({
+      email: z.string().describe('Participant email. Used to invite them and to bind them to their role.'),
+      displayName: z.string().optional().describe('Display name for the participant'),
+      auth0Sub: z.string().optional().describe('Auth0 subject id, when the participant already has a Harmonica account'),
+      rolesByStep: z.record(z.string(), z.string()).optional().describe('Role for this participant per chain step, keyed by step index as a string (e.g. {"0": "expert", "1": "reviewer"}).'),
+    })).optional().describe('Participants and their per-step roles, for chain templates that declare roles. Several chain templates (Delphi among them) cannot start without this — passing a role-based chain template with no roster creates the session but returns chain.status = "roster_incomplete", meaning it is NOT running as a chain. Ignored for single-session templates.'),
   },
-  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, project_id, distribution, questions }, client) => {
+  async ({ topic, goal, context, critical, prompt, template_id, cross_pollination, widgets_enabled, results_visibility, project_id, distribution, questions, roster }, client) => {
     const session = await client.createSession({
       topic,
       goal,
@@ -319,18 +402,22 @@ tool(
       project_id,
       distribution,
       questions,
+      roster,
     });
-    const text = [
+    const lines = [
       `Session created!`,
       ``,
       `  Topic:    ${session.topic}`,
       `  ID:       ${session.id}`,
       `  Status:   ${session.status}`,
       `  Join URL: ${session.join_url}`,
-      ``,
-      `Share the join URL with participants to start the session.`,
-    ].join('\n');
-    return { content: [{ type: 'text', text }] };
+    ];
+    // HAR-1582 — a chain template that fails to bootstrap still returns a real
+    // session, so "Session created!" alone is true and misleading at the same
+    // time. Say which one happened; silence here is the bug that issue is about.
+    if (session.chain) lines.push(``, ...describeChainOutcome(session.chain));
+    lines.push(``, `Share the join URL with participants to start the session.`);
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
   },
 );
 
@@ -478,7 +565,10 @@ tool(
   async ({ session_id, content, participant_id, participant_name }, client) => {
     const result = await client.chat(session_id, { content, participant_id, participant_name });
     const finalNote = result.message.is_final ? '\n\n[Session complete for this participant]' : '';
-    const text = `**Facilitator:** ${result.message.content}${finalNote}\n\nThread ID: ${result.thread_id}`;
+    const widget = result.message.widget_spec
+      ? `\n${describeWidget(result.message.widget_spec).join('\n')}`
+      : '';
+    const text = `**Facilitator:** ${result.message.content}${widget}${finalNote}\n\nThread ID: ${result.thread_id}`;
     return { content: [{ type: 'text', text }] };
   },
 );
@@ -497,7 +587,11 @@ tool(
   },
   async ({ session_id, participant_id, participant_name, answers }, client) => {
     const result = await client.chatQuestions(session_id, { participant_id, participant_name, answers });
-    const text = `**Facilitator:** ${result.message.content}\n\nThread ID: ${result.thread_id}`;
+    // Same as chat_message — the opening turn can carry a widget too.
+    const widget = result.message.widget_spec
+      ? `\n${describeWidget(result.message.widget_spec).join('\n')}`
+      : '';
+    const text = `**Facilitator:** ${result.message.content}${widget}\n\nThread ID: ${result.thread_id}`;
     return { content: [{ type: 'text', text }] };
   },
 );

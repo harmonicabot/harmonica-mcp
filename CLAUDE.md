@@ -64,7 +64,7 @@ Three things to know before editing `index.ts`:
 
 | Tool | Description |
 |------|-------------|
-| `create_session` | Create a new session and get a shareable join URL (optional `project_id` to file it under a project) |
+| `create_session` | Create a new session and get a shareable join URL (optional `project_id` to file it under a project; `roster` for role-based chain templates). Reports the chain bootstrap outcome when `template_id` names a chain. |
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move into a project or `null` to detach) |
 | `list_sessions` | List sessions with optional status filter and search |
 | `get_session` | Get full session details including facilitation prompt |
@@ -75,7 +75,7 @@ Three things to know before editing `index.ts`:
 | `generate_summary` | Trigger summary generation on demand |
 | `search_sessions` | Search sessions by topic/goal keywords |
 | `list_telegram_groups` | List Telegram groups registered to the user's account |
-| `chat_message` | Send a message in a session conversation and get facilitator response |
+| `chat_message` | Send a message in a session conversation and get facilitator response, including any emitted widget rendered as text |
 | `submit_questions` | Submit pre-session question answers and start facilitated conversation |
 | `install_method_spec` | Install an OFL method spec (method.md) as a runnable chain template |
 | `create_project` | Create a project (workspace) you own |

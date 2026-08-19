@@ -8,6 +8,42 @@ export interface HarmonicaClientConfig {
   apiKey: string;
 }
 
+/**
+ * A structured widget the facilitator emitted on a turn (HAR-441).
+ *
+ * The facilitator mirrors every widget into the prose of `content`, so a client
+ * that ignores this field shows the participant an instruction to operate a
+ * control that was never rendered — "Drag to rank these", with nothing to drag.
+ * Rendering it as text is what an MCP caller can do instead.
+ *
+ * Absent when the turn produced no widget, which is the common case: the server
+ * caps widgets at roughly one per four assistant turns.
+ */
+export interface WidgetSpec {
+  root: {
+    type: 'SingleSelect' | 'MultiSelect' | 'RatingScale' | 'RankingList';
+    props: Record<string, unknown>;
+    children: string[];
+  };
+}
+
+/**
+ * Outcome of chain bootstrap on session creation (HAR-1582).
+ *
+ * Present only when `template_id` named a chain template. Anything other than
+ * `started` or `resumed` means the session was created and is real, but is NOT
+ * running as a chain — so this field, not the 201, is what says whether the
+ * methodology is actually running. `roster_incomplete` is the common one:
+ * several chain templates declare roles and cannot start without a roster.
+ */
+export type ChainOutcome =
+  | { status: 'started' | 'resumed'; chainInstanceId: string; stepId: string }
+  | { status: 'noop'; reason: string }
+  | { status: 'unsupported' }
+  | { status: 'roster_incomplete'; message: string }
+  | { status: 'step_cap_exceeded'; message: string }
+  | { status: 'project_cap_exceeded'; message: string };
+
 export interface ApiTemplate {
   id: string;
   title: string;
@@ -265,7 +301,12 @@ export class HarmonicaClient {
     participant_name: string;
   }) {
     return this.request<{
-      message: { role: 'assistant'; content: string; is_final: boolean };
+      message: {
+        role: 'assistant';
+        content: string;
+        is_final: boolean;
+        widget_spec?: WidgetSpec;
+      };
       thread_id: string;
     }>(`/sessions/${sessionId}/chat`, {
       method: 'POST',
@@ -279,7 +320,12 @@ export class HarmonicaClient {
     answers: Array<{ question_id: string; answer: string }>;
   }) {
     return this.request<{
-      message: { role: 'assistant'; content: string; is_final: boolean };
+      message: {
+        role: 'assistant';
+        content: string;
+        is_final: boolean;
+        widget_spec?: WidgetSpec;
+      };
       thread_id: string;
     }>(`/sessions/${sessionId}/chat/questions`, {
       method: 'POST',
@@ -305,6 +351,12 @@ export class HarmonicaClient {
       required?: boolean;
       options?: string[];
     }>;
+    roster?: Array<{
+      email: string;
+      displayName?: string;
+      auth0Sub?: string;
+      rolesByStep?: Record<string, string>;
+    }>;
   }) {
     return this.request<{
       id: string;
@@ -315,6 +367,7 @@ export class HarmonicaClient {
       created_at: string;
       updated_at: string;
       join_url: string;
+      chain?: ChainOutcome;
     }>('/sessions', {
       method: 'POST',
       body: JSON.stringify(params),
