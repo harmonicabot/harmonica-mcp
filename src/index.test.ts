@@ -102,6 +102,17 @@ describe('tools/list over stdio', () => {
     // with no runtime signal, so the guard for it is structural — see the test below.
   });
 
+  it('publishes the process-calls meeting discovery filters', async () => {
+    const { result } = await request(undefined);
+    const listMeetings = result.tools.find((t: any) => t.name === 'list_meetings');
+    expect(Object.keys(listMeetings.inputSchema.properties)).toEqual(expect.arrayContaining([
+      'from',
+      'to',
+      'updated_since',
+      'cursor',
+    ]));
+  });
+
   it('emits the tools/list cache hint to 2026-07-28 clients', async () => {
     const { result } = await request({ _meta: MODERN_META });
     expect(result.ttlMs).toBe(60 * 60 * 1000);
