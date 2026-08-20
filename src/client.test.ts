@@ -162,6 +162,48 @@ describe('HarmonicaClient meeting capture', () => {
       'https://app.harmonica.chat/api/v1/meetings/meeting-1/transcript',
     );
   });
+
+  it('getMeetingRestrictions GETs the owner-scoped restriction state', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ effective_scopes: ['external_export'], history: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const result = await client().getMeetingRestrictions('meeting-1');
+
+    expect(result.effective_scopes).toEqual(['external_export']);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://app.harmonica.chat/api/v1/meetings/meeting-1/restrictions',
+    );
+  });
+
+  it('updateMeetingRestrictions POSTs an append-only restriction action', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ effective_scopes: [], history: [] }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await client().updateMeetingRestrictions('meeting-1', {
+      action: 'review_candidate',
+      candidate_event_id: '00000000-0000-4000-8000-000000000001',
+      decision: 'dismiss',
+      reason: 'No restriction was requested',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://app.harmonica.chat/api/v1/meetings/meeting-1/restrictions');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({
+      action: 'review_candidate',
+      candidate_event_id: '00000000-0000-4000-8000-000000000001',
+      decision: 'dismiss',
+      reason: 'No restriction was requested',
+    });
+  });
 });
 
 describe('HarmonicaClient project management (HAR-1298)', () => {

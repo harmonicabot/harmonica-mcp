@@ -78,12 +78,12 @@ describe('tools/list over stdio', () => {
   it('registers every tool exactly once', async () => {
     const { result } = await request(undefined);
     const names = result.tools.map((t: any) => t.name);
-    expect(names).toHaveLength(24);
+    expect(names).toHaveLength(26);
     expect(new Set(names).size).toBe(names.length);
     // Spot-check across the surface rather than pinning the whole list, which would make every
     // new tool a test edit. These four span sessions, chat, method specs and projects.
     expect(names).toEqual(
-      expect.arrayContaining(['create_session', 'chat_message', 'install_method_spec', 'publish_sensemaking_topic', 'create_unconference_topic']),
+      expect.arrayContaining(['create_session', 'chat_message', 'install_method_spec', 'publish_sensemaking_topic', 'create_unconference_topic', 'get_meeting_restrictions', 'update_meeting_restrictions']),
     );
   });
 

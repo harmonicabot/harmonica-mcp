@@ -84,6 +84,35 @@ export interface ApiSensemakingTopic {
   created_at: string;
 }
 
+export type MeetingRestrictionScope =
+  | 'synthesis'
+  | 'project_attachment'
+  | 'external_export'
+  | 'sharing'
+  | 'all_downstream_processing';
+
+export interface MeetingRestrictionEvent {
+  id: string;
+  sequence: string;
+  meeting_id: string;
+  event_type: 'restriction_set' | 'candidate_flagged' | 'candidate_confirmed' | 'candidate_dismissed';
+  scopes: MeetingRestrictionScope[];
+  reason: string;
+  source: 'owner' | 'policy' | 'transcript_signal';
+  actor_id: string | null;
+  review_of_event_id: string | null;
+  dedupe_key: string | null;
+  created_at: string;
+}
+
+export interface MeetingRestrictionState {
+  authoritative_scopes: MeetingRestrictionScope[];
+  candidate_scopes: MeetingRestrictionScope[];
+  effective_scopes: MeetingRestrictionScope[];
+  pending_candidates: MeetingRestrictionEvent[];
+  history: MeetingRestrictionEvent[];
+}
+
 export class HarmonicaClient {
   private baseUrl: string;
   private apiKey: string;
@@ -246,6 +275,27 @@ export class HarmonicaClient {
         language: string | null;
       }>;
     }>(`/meetings/${meetingId}/transcript`);
+  }
+
+  async getMeetingRestrictions(meetingId: string) {
+    return this.request<MeetingRestrictionState>(`/meetings/${meetingId}/restrictions`);
+  }
+
+  async updateMeetingRestrictions(
+    meetingId: string,
+    values:
+      | { action: 'set'; scopes: MeetingRestrictionScope[]; reason: string }
+      | {
+          action: 'review_candidate';
+          candidate_event_id: string;
+          decision: 'confirm' | 'dismiss';
+          reason: string;
+        },
+  ) {
+    return this.request<MeetingRestrictionState>(`/meetings/${meetingId}/restrictions`, {
+      method: 'POST',
+      body: JSON.stringify(values),
+    });
   }
 
   async getSession(id: string) {
