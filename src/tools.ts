@@ -1,6 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { HarmonicaClient, type ChainOutcome, type WidgetSpec } from './client.js';
+import {
+  HarmonicaClient,
+  type ChainOutcome,
+  type MeetingRestrictionScope,
+  type WidgetSpec,
+} from './client.js';
 import { parseMethodSpec, toChainConfig } from './methodSpec.js';
 
 /**
@@ -215,6 +220,60 @@ tool(
         text: JSON.stringify(result, null, 2),
       }],
     };
+  },
+);
+
+tool(
+  'get_meeting_restrictions',
+  'Get effective processing restrictions, pending candidate signals, and append-only history for one owned meeting',
+  {
+    meeting_id: z.string().describe('Meeting ID (UUID)'),
+  },
+  async ({ meeting_id }, client) => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify(await client.getMeetingRestrictions(meeting_id), null, 2),
+    }],
+  }),
+);
+
+const meetingRestrictionScope = z.enum([
+  'synthesis',
+  'project_attachment',
+  'external_export',
+  'sharing',
+  'all_downstream_processing',
+]);
+
+tool(
+  'update_meeting_restrictions',
+  'Set the complete restriction scope for an owned meeting, or confirm/dismiss a pending transcript-derived candidate',
+  {
+    meeting_id: z.string().describe('Meeting ID (UUID)'),
+    action: z.enum(['set', 'confirm_candidate', 'dismiss_candidate']),
+    scopes: z.array(meetingRestrictionScope).optional().describe('Complete scope set; required for action=set. Pass [] to lift authoritative restrictions.'),
+    candidate_event_id: z.string().uuid().optional().describe('Pending candidate event; required for candidate review actions.'),
+    reason: z.string().min(1).max(1_000).describe('Reason recorded in append-only history'),
+  },
+  async ({ meeting_id, action, scopes, candidate_event_id, reason }, client) => {
+    if (action === 'set' && !scopes) throw new Error('scopes is required for action=set');
+    if (action !== 'set' && !candidate_event_id) {
+      throw new Error('candidate_event_id is required for candidate review');
+    }
+
+    const result = action === 'set'
+      ? await client.updateMeetingRestrictions(meeting_id, {
+          action: 'set',
+          scopes: scopes as MeetingRestrictionScope[],
+          reason,
+        })
+      : await client.updateMeetingRestrictions(meeting_id, {
+          action: 'review_candidate',
+          candidate_event_id: candidate_event_id!,
+          decision: action === 'confirm_candidate' ? 'confirm' : 'dismiss',
+          reason,
+        });
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   },
 );
 
