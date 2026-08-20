@@ -140,13 +140,21 @@ export class HarmonicaClient {
 
   async listMeetings(params?: {
     status?: 'scheduled' | 'joining' | 'in_call' | 'recording' | 'transcribing' | 'ready' | 'failed' | 'cancelled';
+    from?: string;
+    to?: string;
+    updated_since?: string;
     limit?: number;
     offset?: number;
+    cursor?: string;
   }) {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
+    if (params?.from) query.set('from', params.from);
+    if (params?.to) query.set('to', params.to);
+    if (params?.updated_since) query.set('updated_since', params.updated_since);
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.cursor) query.set('cursor', params.cursor);
     const qs = query.toString();
 
     return this.request<{
@@ -161,8 +169,22 @@ export class HarmonicaClient {
         status: string;
         error_code: string | null;
         error_message: string | null;
+        created_at: string;
+        updated_at: string;
+        transcript_status: 'processing' | 'ready' | 'failed' | null;
+        transcript_language: string | null;
+        has_transcript: boolean;
+        empty_transcript: boolean;
+        utterance_count: number;
+        speaker_count: number;
+        actual_duration_ms: number | null;
       }>;
-      pagination: { total: number; limit: number; offset: number };
+      pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+        next_cursor: string | null;
+      };
     }>(`/meetings${qs ? `?${qs}` : ''}`);
   }
 

@@ -121,17 +121,29 @@ describe('HarmonicaClient meeting capture', () => {
 
   it('listMeetings GETs the owner-scoped meetings endpoint with filters', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [{ id: 'meeting-1' }], pagination: { total: 1, limit: 5, offset: 2 } }), {
+      new Response(JSON.stringify({
+        data: [{ id: 'meeting-1', utterance_count: 12, actual_duration_ms: 3_600_000 }],
+        pagination: { total: 1, limit: 5, offset: 0, next_cursor: 'page-2' },
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
     );
 
-    const result = await client().listMeetings({ status: 'ready', limit: 5, offset: 2 });
+    const result = await client().listMeetings({
+      status: 'ready',
+      from: '2026-08-01T00:00:00Z',
+      to: '2026-08-20T00:00:00Z',
+      updated_since: '2026-08-19T00:00:00Z',
+      limit: 5,
+      cursor: 'page-1',
+    });
 
     expect(result.data[0].id).toBe('meeting-1');
+    expect(result.data[0].utterance_count).toBe(12);
+    expect(result.pagination.next_cursor).toBe('page-2');
     expect(fetchMock.mock.calls[0][0]).toBe(
-      'https://app.harmonica.chat/api/v1/meetings?status=ready&limit=5&offset=2',
+      'https://app.harmonica.chat/api/v1/meetings?status=ready&from=2026-08-01T00%3A00%3A00Z&to=2026-08-20T00%3A00%3A00Z&updated_since=2026-08-19T00%3A00%3A00Z&limit=5&cursor=page-1',
     );
   });
 

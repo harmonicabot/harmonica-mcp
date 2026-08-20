@@ -98,11 +98,23 @@ tool(
   'List personal calendar meetings captured by the Harmonica notetaker',
   {
     status: z.enum(['scheduled', 'joining', 'in_call', 'recording', 'transcribing', 'ready', 'failed', 'cancelled']).optional().describe('Filter by meeting status'),
+    from: z.iso.datetime({ offset: true }).optional().describe('Include meetings starting at or after this ISO timestamp'),
+    to: z.iso.datetime({ offset: true }).optional().describe('Include meetings starting before this ISO timestamp'),
+    updated_since: z.iso.datetime({ offset: true }).optional().describe('Include meetings updated at or after this ISO timestamp'),
     limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
     offset: z.number().min(0).optional().describe('Pagination offset'),
+    cursor: z.string().optional().describe('Stable pagination cursor returned by the previous page'),
   },
-  async ({ status, limit, offset }, client) => {
-    const result = await client.listMeetings({ status, limit, offset });
+  async ({ status, from, to, updated_since, limit, offset, cursor }, client) => {
+    const result = await client.listMeetings({
+      status,
+      from,
+      to,
+      updated_since,
+      limit,
+      offset,
+      cursor,
+    });
     return {
       content: [{
         type: 'text',
