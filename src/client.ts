@@ -113,6 +113,21 @@ export interface MeetingRestrictionState {
   history: MeetingRestrictionEvent[];
 }
 
+export interface SessionLifecycleResponse {
+  id: string;
+  topic: string;
+  goal: string;
+  critical: string | null;
+  context: string | null;
+  prompt: string | null;
+  status: 'active' | 'completed';
+  summary: string | null;
+  session_md: string | null;
+  participant_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export class HarmonicaClient {
   private baseUrl: string;
   private apiKey: string;
@@ -493,6 +508,18 @@ export class HarmonicaClient {
     }>(`/sessions/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(params),
+    });
+  }
+
+  async closeSession(id: string) {
+    return this.request<SessionLifecycleResponse>(`/sessions/${id}/close`, {
+      method: 'POST',
+    });
+  }
+
+  async reopenSession(id: string) {
+    return this.request<SessionLifecycleResponse>(`/sessions/${id}/reopen`, {
+      method: 'POST',
     });
   }
 

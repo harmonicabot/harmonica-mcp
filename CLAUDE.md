@@ -66,6 +66,8 @@ Three things to know before editing `index.ts`:
 |------|-------------|
 | `create_session` | Create a new session and get a shareable join URL (optional `project_id` to file it under a project; `roster` for role-based chain templates). Reports the chain bootstrap outcome when `template_id` names a chain. |
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move into a project or `null` to detach) |
+| `close_session` | End a session while preserving its participant threads, messages, summaries, and other data |
+| `reopen_session` | Reopen a completed session so participants can join again |
 | `list_sessions` | List sessions with optional status filter and search |
 | `get_session` | Get full session details including facilitation prompt |
 | `list_participants` | List participants for a session |
@@ -116,7 +118,7 @@ The McpServer version is read from `package.json` at startup. Bump with `npm ver
 
 ## HTTP transport
 
-`MCP_TRANSPORT=http` (or `--http`) serves the same 26 tools over Streamable HTTP instead of stdio. **stdio remains the default**, so existing `npx -y harmonica-mcp` installs are untouched.
+`MCP_TRANSPORT=http` (or `--http`) serves the same 28 tools over Streamable HTTP instead of stdio. **stdio remains the default**, so existing `npx -y harmonica-mcp` installs are untouched.
 
 Each request carries its own key — `Authorization: Bearer <harmonica-api-key>` — and gets its own `HarmonicaClient` and its own server instance, so two callers with different keys can be in flight at once and nothing is shared between them.
 

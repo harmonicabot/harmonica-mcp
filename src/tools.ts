@@ -107,7 +107,7 @@ const registrations: Registration[] = [];
 /**
  * Registers one tool.
  *
- * The `z.object()` wrap happens HERE, once, rather than at each of the 22 call sites. Raw-shape
+ * The `z.object()` wrap happens HERE, once, rather than at each tool call site. Raw-shape
  * `inputSchema` still works — the SDK auto-wraps it — but it is deprecated, and a single boundary
  * means a tool added later cannot land on the deprecated path by someone forgetting to wrap.
  *
@@ -553,6 +553,40 @@ tool(
       .filter(Boolean)
       .join('\n');
     return { content: [{ type: 'text', text }] };
+  },
+);
+
+tool(
+  'close_session',
+  'End a session while preserving participant threads, messages, summaries, and other session data. Requires editor role.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+  },
+  async ({ session_id }, client) => {
+    const session = await client.closeSession(session_id);
+    return {
+      content: [{
+        type: 'text',
+        text: `Session closed.\n\n  ID:     ${session.id}\n  Status: ${session.status}`,
+      }],
+    };
+  },
+);
+
+tool(
+  'reopen_session',
+  'Reopen a completed session so participants can join again. Requires editor role.',
+  {
+    session_id: z.string().describe('Session ID (UUID)'),
+  },
+  async ({ session_id }, client) => {
+    const session = await client.reopenSession(session_id);
+    return {
+      content: [{
+        type: 'text',
+        text: `Session reopened.\n\n  ID:     ${session.id}\n  Status: ${session.status}`,
+      }],
+    };
   },
 );
 

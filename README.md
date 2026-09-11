@@ -46,6 +46,8 @@ Share the join URL with participants. Once they've responded, use `get_responses
 |------|-------------|
 | `create_session` | Create a new deliberation session and get a shareable join URL (optional: `questions`, `project_id` to file it under a project) |
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move it into a project or `null` to detach) |
+| `close_session` | End a session without deleting its participant threads, messages, summaries, or other data |
+| `reopen_session` | Reopen a completed session so participants can join again |
 | `list_sessions` | List your deliberation sessions (filter by status, search) |
 | `get_session` | Get full session details (includes facilitation prompt) |
 | `get_questions` | Get pre-session questions (data collection form) |

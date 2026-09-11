@@ -45,6 +45,34 @@ describe('HarmonicaClient.createTemplate', () => {
   });
 });
 
+describe('HarmonicaClient session lifecycle', () => {
+  it.each([
+    ['closeSession', 'close', 'completed'],
+    ['reopenSession', 'reopen', 'active'],
+  ] as const)('POSTs %s to its explicit lifecycle endpoint', async (method, path, status) => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 's-1', status }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://app.harmonica.chat',
+      apiKey: 'hm_live_test',
+    });
+
+    const result = await client[method]('s-1');
+
+    expect(result.status).toBe(status);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`https://app.harmonica.chat/api/v1/sessions/s-1/${path}`);
+    expect(init?.method).toBe('POST');
+    expect((init?.headers as Record<string, string>).Authorization).toBe(
+      'Bearer hm_live_test',
+    );
+  });
+});
+
 describe('HarmonicaClient.createProject', () => {
   it('POSTs to /api/v1/projects with the title body + bearer auth', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
