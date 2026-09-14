@@ -73,6 +73,94 @@ describe('HarmonicaClient session lifecycle', () => {
   });
 });
 
+describe('HarmonicaClient.listSessions', () => {
+  it('forwards platform scope and pagination while preserving audit timestamps', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        data: [{
+          id: 's-1',
+          topic: 'Audit me',
+          goal: 'Decide whether this session is stale',
+          status: 'active',
+          participant_count: 0,
+          created_at: '2026-07-01T00:00:00.000Z',
+          updated_at: '2026-07-02T00:00:00.000Z',
+        }],
+        pagination: { total: 201, limit: 100, offset: 100, scope: 'platform' },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://app.harmonica.chat',
+      apiKey: 'hm_live_test',
+    });
+
+    const result = await client.listSessions({
+      status: 'active',
+      limit: 100,
+      offset: 100,
+      scope: 'platform',
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://app.harmonica.chat/api/v1/sessions?status=active&limit=100&offset=100&scope=platform',
+    );
+    expect(result.pagination).toEqual({
+      total: 201,
+      limit: 100,
+      offset: 100,
+      scope: 'platform',
+    });
+    expect(result.data[0]).toMatchObject({
+      participant_count: 0,
+      created_at: '2026-07-01T00:00:00.000Z',
+      updated_at: '2026-07-02T00:00:00.000Z',
+    });
+  });
+
+  it('fails closed when an older API ignores requested platform scope', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        data: [],
+        pagination: { total: 0, limit: 100, offset: 0 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://older.harmonica.example',
+      apiKey: 'hm_live_test',
+    });
+
+    await expect(client.listSessions({ scope: 'platform', limit: 100 })).rejects.toThrow(
+      'did not confirm platform scope',
+    );
+  });
+
+  it('keeps account-scoped listing compatible with an older API response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        data: [],
+        pagination: { total: 0, limit: 20, offset: 0 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://older.harmonica.example',
+      apiKey: 'hm_live_test',
+    });
+
+    const result = await client.listSessions();
+
+    expect(result.pagination.scope).toBe('account');
+  });
+});
+
 describe('HarmonicaClient.createProject', () => {
   it('POSTs to /api/v1/projects with the title body + bearer auth', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(

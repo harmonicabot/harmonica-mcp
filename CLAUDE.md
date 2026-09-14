@@ -68,7 +68,7 @@ Three things to know before editing `index.ts`:
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move into a project or `null` to detach) |
 | `close_session` | End a session while preserving its participant threads, messages, summaries, and other data |
 | `reopen_session` | Reopen a completed session so participants can join again |
-| `list_sessions` | List sessions with optional status filter and search |
+| `list_sessions` | Paginate account-scoped session metadata; explicit `platform` scope requires a separately authorized global-admin audit key |
 | `get_session` | Get full session details including facilitation prompt |
 | `list_participants` | List participants for a session |
 | `get_questions` | Get pre-session questions (data collection form) |

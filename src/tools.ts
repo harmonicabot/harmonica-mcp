@@ -85,6 +85,23 @@ export function describeWidget(spec: WidgetSpec): string[] {
   return out;
 }
 
+/** Keep the standalone MCP's list shape aligned with the hosted MCP surface. */
+export function sessionListPage(
+  result: Awaited<ReturnType<HarmonicaClient['listSessions']>>,
+) {
+  const nextOffset = result.pagination.offset + result.data.length < result.pagination.total
+    ? result.pagination.offset + result.data.length
+    : null;
+  return {
+    scope: result.pagination.scope,
+    total: result.pagination.total,
+    limit: result.pagination.limit,
+    offset: result.pagination.offset,
+    next_offset: nextOffset,
+    sessions: result.data,
+  };
+}
+
 /**
  * SEP-2549. The tool catalog is identical for every caller and only changes when we publish, so
  * callers may cache it and keep their prompt caches warm across reconnects. `public` is correct
@@ -133,21 +150,31 @@ function tool<S extends z.ZodRawShape>(
 
 tool(
   'list_sessions',
-  'List Harmonica deliberation sessions you have access to',
+  'List Harmonica deliberation sessions with pagination. Defaults to sessions you can access; platform scope requires a specifically authorized global-admin API key and still exposes metadata only.',
   {
     status: z.enum(['active', 'completed']).optional().describe('Filter by status'),
     query: z.string().optional().describe('Search by topic or goal'),
+    scope: z
+      .enum(['account', 'platform'])
+      .optional()
+      .describe('Listing scope (default account). Platform requires an authorized admin metadata key.'),
     limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
+    offset: z.number().min(0).optional().describe('Pagination offset'),
   },
-  async ({ status, query, limit }, client) => {
-    const result = await client.listSessions({ status, q: query, limit });
-    const lines = result.data.map(
-      (s) => `[${s.status}] ${s.topic} (${s.participant_count} participants) — ${s.id}`,
-    );
-    const text = lines.length
-      ? `${result.pagination.total} sessions found:\n\n${lines.join('\n')}`
-      : 'No sessions found.';
-    return { content: [{ type: 'text', text }] };
+  async ({ status, query, scope, limit, offset }, client) => {
+    const result = await client.listSessions({
+      status,
+      q: query,
+      scope,
+      limit,
+      offset,
+    });
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(sessionListPage(result), null, 2),
+      }],
+    };
   },
 );
 

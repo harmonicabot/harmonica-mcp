@@ -196,15 +196,17 @@ export class HarmonicaClient {
     q?: string;
     limit?: number;
     offset?: number;
+    scope?: 'account' | 'platform';
   }) {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
     if (params?.q) query.set('q', params.q);
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.scope) query.set('scope', params.scope);
     const qs = query.toString();
 
-    return this.request<{
+    const result = await this.request<{
       data: Array<{
         id: string;
         topic: string;
@@ -214,8 +216,27 @@ export class HarmonicaClient {
         created_at: string;
         updated_at: string;
       }>;
-      pagination: { total: number; limit: number; offset: number };
+      pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+        scope?: 'account' | 'platform';
+      };
     }>(`/sessions${qs ? `?${qs}` : ''}`);
+
+    // Older/custom Harmonica deployments may ignore an unknown scope query.
+    // Never let an account-only page masquerade as a complete platform audit.
+    if (params?.scope === 'platform' && result.pagination.scope !== 'platform') {
+      throw new Error('Harmonica API did not confirm platform scope');
+    }
+
+    return {
+      ...result,
+      pagination: {
+        ...result.pagination,
+        scope: result.pagination.scope ?? 'account',
+      },
+    };
   }
 
   async listMeetings(params?: {

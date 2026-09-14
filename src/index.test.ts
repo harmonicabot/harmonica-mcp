@@ -113,6 +113,17 @@ describe('tools/list over stdio', () => {
     ]));
   });
 
+  it('publishes platform session scope and offset pagination', async () => {
+    const { result } = await request(undefined);
+    const listSessions = result.tools.find((t: any) => t.name === 'list_sessions');
+    expect(Object.keys(listSessions.inputSchema.properties)).toEqual(expect.arrayContaining([
+      'scope',
+      'offset',
+    ]));
+    expect(listSessions.inputSchema.properties.scope.enum).toEqual(['account', 'platform']);
+    expect(listSessions.inputSchema.properties.offset.minimum).toBe(0);
+  });
+
   it('emits the tools/list cache hint to 2026-07-28 clients', async () => {
     const { result } = await request({ _meta: MODERN_META });
     expect(result.ttlMs).toBe(60 * 60 * 1000);

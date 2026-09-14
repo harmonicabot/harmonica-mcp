@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { describeChainOutcome, describeWidget } from './tools.js';
+import { describeChainOutcome, describeWidget, sessionListPage } from './tools.js';
 import { HarmonicaClient } from './client.js';
 
 afterEach(() => vi.restoreAllMocks());
@@ -117,6 +117,43 @@ describe('describeWidget', () => {
     }).join('\n');
 
     expect(out).toContain('[MultiSelect]');
+  });
+});
+
+describe('sessionListPage', () => {
+  it('keeps metadata timestamps and returns the next offset for a partial audit page', () => {
+    const result = sessionListPage({
+      data: [{
+        id: 's-1',
+        topic: 'Audit me',
+        goal: 'Decide whether this session is stale',
+        status: 'active',
+        participant_count: 0,
+        created_at: '2026-07-01T00:00:00.000Z',
+        updated_at: '2026-07-02T00:00:00.000Z',
+      }],
+      pagination: { total: 201, limit: 100, offset: 100, scope: 'platform' },
+    });
+
+    expect(result).toMatchObject({
+      scope: 'platform',
+      total: 201,
+      limit: 100,
+      offset: 100,
+      next_offset: 101,
+    });
+    expect(result.sessions[0]).toMatchObject({
+      participant_count: 0,
+      created_at: '2026-07-01T00:00:00.000Z',
+      updated_at: '2026-07-02T00:00:00.000Z',
+    });
+  });
+
+  it('returns a null next offset on the final page', () => {
+    expect(sessionListPage({
+      data: [],
+      pagination: { total: 200, limit: 100, offset: 200, scope: 'account' },
+    }).next_offset).toBeNull();
   });
 });
 
