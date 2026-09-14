@@ -207,16 +207,20 @@ tool(
   'List personal calendar meetings captured by the Harmonica notetaker',
   {
     status: z.enum(['scheduled', 'joining', 'in_call', 'recording', 'transcribing', 'ready', 'failed', 'cancelled']).optional().describe('Filter by meeting status'),
+    provider: z.enum(['google_meet', 'zoom', 'microsoft_teams']).optional().describe('Filter by meeting platform'),
+    attachment: z.enum(['attached', 'unattached']).optional().describe('Filter by Project attachment state'),
     from: z.iso.datetime({ offset: true }).optional().describe('Include meetings starting at or after this ISO timestamp'),
     to: z.iso.datetime({ offset: true }).optional().describe('Include meetings starting before this ISO timestamp'),
     updated_since: z.iso.datetime({ offset: true }).optional().describe('Include meetings updated at or after this ISO timestamp'),
-    limit: z.number().min(1).max(100).optional().describe('Results per page (default 20)'),
-    offset: z.number().min(0).optional().describe('Pagination offset'),
-    cursor: z.string().optional().describe('Stable pagination cursor returned by the previous page'),
+    limit: z.number().int().min(1).max(100).optional().describe('Results per page (default 20)'),
+    offset: z.number().int().min(0).optional().describe('Pagination offset'),
+    cursor: z.string().min(1).optional().describe('Stable pagination cursor returned by the previous page'),
   },
-  async ({ status, from, to, updated_since, limit, offset, cursor }, client) => {
+  async ({ status, provider, attachment, from, to, updated_since, limit, offset, cursor }, client) => {
     const result = await client.listMeetings({
       status,
+      provider,
+      attachment,
       from,
       to,
       updated_since,
@@ -235,12 +239,23 @@ tool(
 
 tool(
   'get_transcript',
-  'Get the persisted transcript and speaker turns for one personal calendar meeting',
+  'Get one bounded page of a meeting transcript with stable currentness metadata',
   {
     meeting_id: z.string().describe('Meeting ID (UUID)'),
+    format: z.enum(['turns', 'text']).default('turns').describe('Transcript representation'),
+    limit: z.number().int().min(1).max(200).default(100).describe('Maximum segments returned'),
+    max_chars: z.number().int().min(1000).max(50000).default(25000).describe('Maximum transcript text characters returned'),
+    cursor: z.string().min(1).optional().describe('Opaque cursor returned by the previous transcript page'),
+    include_speaker_email: z.boolean().default(false).describe('Include speaker email labels (owner access only; turns format only)'),
   },
-  async ({ meeting_id }, client) => {
-    const result = await client.getTranscript(meeting_id);
+  async ({ meeting_id, format, limit, max_chars, cursor, include_speaker_email }, client) => {
+    const result = await client.getTranscript(meeting_id, {
+      format,
+      limit,
+      max_chars,
+      cursor,
+      include_speaker_email,
+    });
     return {
       content: [{
         type: 'text',

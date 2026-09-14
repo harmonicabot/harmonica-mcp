@@ -59,14 +59,19 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `create_project` | Create a project (workspace) to group related sessions |
 | `list_projects` | List the projects (workspaces) you have access to |
 | `get_project` | Get a project by id, with the ids of its linked sessions |
-| `list_meetings` | List personal calendar meetings captured by the Harmonica notetaker |
-| `get_transcript` | Get the persisted transcript and speaker turns for a personal calendar meeting |
+| `list_meetings` | List owned calendar meetings with compact transcript currentness and processing metadata |
+| `get_transcript` | Get one bounded transcript page in `turns` or `text` format, with an optional continuation cursor |
 | `get_meeting_restrictions` | Get effective processing restrictions, pending candidates, and history for an owned meeting |
 | `update_meeting_restrictions` | Set restrictions or review a pending transcript-derived candidate for an owned meeting |
 | `update_project` | Rename a project or update its description (editor access) |
 | `delete_project` | Soft-delete a project; its sessions are left intact (owner access) |
 | `create_unconference_topic` | Create a draft topic in an Unconference project and mirror it to the connected brain repository (editor access) |
 | `publish_sensemaking_topic` | Publish a project as a public sensemaking topic (`/explore` + `/t/[slug]`) |
+
+`get_transcript` returns one page only: 100 segments and 25,000 transcript
+characters by default, with hard maxima of 200 segments and 50,000 characters.
+Pass `pagination.next_cursor` back as `cursor` to continue. Complete transcript
+download is owner-only through REST and is intentionally not an MCP tool.
 
 ## From Source
 
