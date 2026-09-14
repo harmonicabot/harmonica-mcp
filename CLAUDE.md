@@ -27,6 +27,19 @@ npm version patch|minor|major   # Bump version in package.json
 npm publish                     # Runs prepublishOnly → build → publish
 ```
 
+Publishing is an actor-split workflow. Before any release command, work from
+this repository root and verify the release target with `Get-Location`,
+`git branch --show-current`, `git status --short --branch`,
+`npm pkg get name version`, and `npm view harmonica-mcp version`. The agent
+prepares the release completely: select `master`, fast-forward it, run the
+required tests, run `npm version`, and push the release commit and tag. Only
+then hand the final `npm publish` command to Artem to run in an interactive
+terminal from this folder. An unauthenticated agent shell (`npm whoami` →
+`E401`) is expected and does not block preparation; do not troubleshoot npm
+credentials or ask Artem to run the versioning, Git, or verification steps.
+After Artem reports success, verify the new version directly in the npm
+registry before declaring the release published.
+
 ## Architecture
 
 ```
