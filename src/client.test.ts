@@ -119,6 +119,46 @@ describe('HarmonicaClient.listSessions', () => {
       updated_at: '2026-07-02T00:00:00.000Z',
     });
   });
+
+  it('fails closed when an older API ignores requested platform scope', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        data: [],
+        pagination: { total: 0, limit: 100, offset: 0 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://older.harmonica.example',
+      apiKey: 'hm_live_test',
+    });
+
+    await expect(client.listSessions({ scope: 'platform', limit: 100 })).rejects.toThrow(
+      'did not confirm platform scope',
+    );
+  });
+
+  it('keeps account-scoped listing compatible with an older API response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        data: [],
+        pagination: { total: 0, limit: 20, offset: 0 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://older.harmonica.example',
+      apiKey: 'hm_live_test',
+    });
+
+    const result = await client.listSessions();
+
+    expect(result.pagination.scope).toBe('account');
+  });
 });
 
 describe('HarmonicaClient.createProject', () => {
