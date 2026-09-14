@@ -238,7 +238,18 @@ describe('HarmonicaClient meeting capture', () => {
   it('listMeetings GETs the owner-scoped meetings endpoint with filters', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
-        data: [{ id: 'meeting-1', utterance_count: 12, actual_duration_ms: 3_600_000 }],
+        data: [{
+          id: 'meeting-1',
+          utterance_count: 12,
+          actual_duration_ms: 3_600_000,
+          effective_restriction_scopes: [],
+          project_attachment_count: 1,
+          transcript: {
+            revision: 3,
+            content_hash: `sha256:${'a'.repeat(64)}`,
+            restriction_revision: '5',
+          },
+        }],
         pagination: { total: 1, limit: 5, offset: 0, next_cursor: 'page-2' },
       }), {
         status: 200,
@@ -248,6 +259,8 @@ describe('HarmonicaClient meeting capture', () => {
 
     const result = await client().listMeetings({
       status: 'ready',
+      provider: 'zoom',
+      attachment: 'attached',
       from: '2026-08-01T00:00:00Z',
       to: '2026-08-20T00:00:00Z',
       updated_since: '2026-08-19T00:00:00Z',
@@ -257,25 +270,52 @@ describe('HarmonicaClient meeting capture', () => {
 
     expect(result.data[0].id).toBe('meeting-1');
     expect(result.data[0].utterance_count).toBe(12);
+    expect(result.data[0].transcript?.revision).toBe(3);
+    expect(result.data[0].transcript?.restriction_revision).toBe('5');
     expect(result.pagination.next_cursor).toBe('page-2');
     expect(fetchMock.mock.calls[0][0]).toBe(
-      'https://app.harmonica.chat/api/v1/meetings?status=ready&from=2026-08-01T00%3A00%3A00Z&to=2026-08-20T00%3A00%3A00Z&updated_since=2026-08-19T00%3A00%3A00Z&limit=5&cursor=page-1',
+      'https://app.harmonica.chat/api/v1/meetings?status=ready&provider=zoom&attachment=attached&from=2026-08-01T00%3A00%3A00Z&to=2026-08-20T00%3A00%3A00Z&updated_since=2026-08-19T00%3A00%3A00Z&limit=5&cursor=page-1',
     );
   });
 
-  it('getTranscript GETs the meeting transcript endpoint', async () => {
+  it('getTranscript exposes one bounded transcript page and its next cursor', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ id: 'transcript-1', utterances: [] }), {
+      new Response(JSON.stringify({
+        transcript: {
+          id: 'transcript-1',
+          revision: 3,
+          content_hash: `sha256:${'a'.repeat(64)}`,
+          restriction_revision: '5',
+        },
+        access_basis: 'owner',
+        segments: [{ sequence: 0, text: 'Hello' }],
+        pagination: {
+          limit: 20,
+          max_chars: 1_000,
+          returned_chars: 5,
+          next_cursor: 'next-page',
+          complete: false,
+        },
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
     );
 
-    const result = await client().getTranscript('meeting-1');
+    const result = await client().getTranscript('meeting-1', {
+      format: 'turns',
+      limit: 20,
+      max_chars: 1_000,
+      cursor: 'page-1',
+      include_speaker_email: true,
+    });
 
-    expect(result.id).toBe('transcript-1');
+    expect(result.transcript.id).toBe('transcript-1');
+    expect(result.transcript.revision).toBe(3);
+    expect(result.pagination.next_cursor).toBe('next-page');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe(
-      'https://app.harmonica.chat/api/v1/meetings/meeting-1/transcript',
+      'https://app.harmonica.chat/api/v1/meetings/meeting-1/transcript?format=turns&limit=20&max_chars=1000&cursor=page-1&include_speaker_email=true',
     );
   });
 

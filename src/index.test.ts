@@ -106,11 +106,52 @@ describe('tools/list over stdio', () => {
     const { result } = await request(undefined);
     const listMeetings = result.tools.find((t: any) => t.name === 'list_meetings');
     expect(Object.keys(listMeetings.inputSchema.properties)).toEqual(expect.arrayContaining([
+      'provider',
+      'attachment',
       'from',
       'to',
       'updated_since',
       'cursor',
     ]));
+    expect(listMeetings.inputSchema.properties.provider.enum).toEqual([
+      'google_meet',
+      'zoom',
+      'microsoft_teams',
+    ]);
+    expect(listMeetings.inputSchema.properties.attachment.enum).toEqual([
+      'attached',
+      'unattached',
+    ]);
+  });
+
+  it('publishes optional bounded transcript controls with stable defaults', async () => {
+    const { result } = await request(undefined);
+    const transcript = result.tools.find((t: any) => t.name === 'get_transcript');
+    expect(Object.keys(transcript.inputSchema.properties).sort()).toEqual([
+      'cursor',
+      'format',
+      'include_speaker_email',
+      'limit',
+      'max_chars',
+      'meeting_id',
+    ]);
+    expect(transcript.inputSchema.required).toEqual(['meeting_id']);
+    expect(transcript.inputSchema.properties.format).toMatchObject({
+      enum: ['turns', 'text'],
+      default: 'turns',
+    });
+    expect(transcript.inputSchema.properties.limit).toMatchObject({
+      minimum: 1,
+      maximum: 200,
+      default: 100,
+    });
+    expect(transcript.inputSchema.properties.max_chars).toMatchObject({
+      minimum: 1_000,
+      maximum: 50_000,
+      default: 25_000,
+    });
+    expect(transcript.inputSchema.properties.cursor.minLength).toBe(1);
+    expect(transcript.inputSchema.properties.include_speaker_email.default).toBe(false);
   });
 
   it('publishes platform session scope and offset pagination', async () => {

@@ -113,6 +113,115 @@ export interface MeetingRestrictionState {
   history: MeetingRestrictionEvent[];
 }
 
+export type MeetingProvider = 'google_meet' | 'zoom' | 'microsoft_teams';
+export type MeetingStatus =
+  | 'scheduled'
+  | 'joining'
+  | 'in_call'
+  | 'recording'
+  | 'transcribing'
+  | 'ready'
+  | 'failed'
+  | 'cancelled';
+export type TranscriptStatus = 'processing' | 'ready' | 'failed';
+export type TranscriptAvailability =
+  | 'pending'
+  | 'ready'
+  | 'retryable_failure'
+  | 'terminal_failure'
+  | 'restricted';
+
+export interface TranscriptSourceProvenance {
+  kind: 'harmonica_capture' | 'provider_import' | 'manual_import';
+  provider: string;
+}
+
+export interface TranscriptProcessingProvenance {
+  provider: string;
+  model: string;
+  normalization_version: string;
+  attempt_status: 'pending' | 'processing' | 'succeeded' | 'failed';
+  failure_stage:
+    | 'capture'
+    | 'transcription'
+    | 'normalization'
+    | 'persistence'
+    | 'unknown'
+    | null;
+  failure_disposition: 'retryable' | 'terminal' | null;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface MeetingTranscriptMetadata {
+  id: string;
+  meeting_id: string;
+  status: TranscriptStatus;
+  availability: TranscriptAvailability;
+  language: string | null;
+  revision: number | null;
+  content_hash: string | null;
+  restriction_revision: string;
+  completed_at: string | null;
+  source: TranscriptSourceProvenance;
+  processing: TranscriptProcessingProvenance;
+}
+
+export interface MeetingListItem {
+  id: string;
+  title: string;
+  meeting_url: string;
+  meeting_provider: MeetingProvider;
+  starts_at: string;
+  ends_at: string | null;
+  timezone: string | null;
+  status: MeetingStatus;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  transcript_status: TranscriptStatus | null;
+  transcript_language: string | null;
+  has_transcript: boolean;
+  empty_transcript: boolean;
+  utterance_count: number;
+  speaker_count: number;
+  actual_duration_ms: number | null;
+  effective_restriction_scopes: MeetingRestrictionScope[];
+  project_attachment_count: number;
+  transcript: MeetingTranscriptMetadata | null;
+}
+
+export interface TranscriptSegment {
+  sequence: number;
+  speaker_id: string | null;
+  speaker_name: string | null;
+  speaker_email?: string | null;
+  start_ms: number | null;
+  end_ms: number | null;
+  text: string;
+  language: string | null;
+  continues_before: boolean;
+  continues_after: boolean;
+  text_offset: number;
+}
+
+export interface MeetingTranscriptPage {
+  transcript: MeetingTranscriptMetadata;
+  access_basis: 'owner' | 'project';
+  segments?: TranscriptSegment[];
+  text?: string;
+  pagination: {
+    limit: number;
+    max_chars: number;
+    returned_chars: number;
+    next_cursor: string | null;
+    complete: boolean;
+  };
+}
+
 export interface SessionLifecycleResponse {
   id: string;
   topic: string;
@@ -240,7 +349,9 @@ export class HarmonicaClient {
   }
 
   async listMeetings(params?: {
-    status?: 'scheduled' | 'joining' | 'in_call' | 'recording' | 'transcribing' | 'ready' | 'failed' | 'cancelled';
+    status?: MeetingStatus;
+    provider?: MeetingProvider;
+    attachment?: 'attached' | 'unattached';
     from?: string;
     to?: string;
     updated_since?: string;
@@ -250,6 +361,8 @@ export class HarmonicaClient {
   }) {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
+    if (params?.provider) query.set('provider', params.provider);
+    if (params?.attachment) query.set('attachment', params.attachment);
     if (params?.from) query.set('from', params.from);
     if (params?.to) query.set('to', params.to);
     if (params?.updated_since) query.set('updated_since', params.updated_since);
@@ -259,27 +372,7 @@ export class HarmonicaClient {
     const qs = query.toString();
 
     return this.request<{
-      data: Array<{
-        id: string;
-        title: string;
-        meeting_url: string;
-        meeting_provider: string;
-        starts_at: string;
-        ends_at: string | null;
-        timezone: string | null;
-        status: string;
-        error_code: string | null;
-        error_message: string | null;
-        created_at: string;
-        updated_at: string;
-        transcript_status: 'processing' | 'ready' | 'failed' | null;
-        transcript_language: string | null;
-        has_transcript: boolean;
-        empty_transcript: boolean;
-        utterance_count: number;
-        speaker_count: number;
-        actual_duration_ms: number | null;
-      }>;
+      data: MeetingListItem[];
       pagination: {
         total: number;
         limit: number;
@@ -289,28 +382,25 @@ export class HarmonicaClient {
     }>(`/meetings${qs ? `?${qs}` : ''}`);
   }
 
-  async getTranscript(meetingId: string) {
-    return this.request<{
-      id: string;
-      meeting_id: string;
-      provider: string;
-      model: string;
-      language: string | null;
-      status: string;
-      error_code: string | null;
-      error_message: string | null;
-      completed_at: string | null;
-      utterances: Array<{
-        sequence: number;
-        speaker_id: string | null;
-        speaker_name: string | null;
-        speaker_email: string | null;
-        start_ms: number | null;
-        end_ms: number | null;
-        text: string;
-        language: string | null;
-      }>;
-    }>(`/meetings/${meetingId}/transcript`);
+  async getTranscript(meetingId: string, params?: {
+    format?: 'turns' | 'text';
+    limit?: number;
+    max_chars?: number;
+    cursor?: string;
+    include_speaker_email?: boolean;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.format) query.set('format', params.format);
+    if (params?.limit !== undefined) query.set('limit', String(params.limit));
+    if (params?.max_chars !== undefined) query.set('max_chars', String(params.max_chars));
+    if (params?.cursor) query.set('cursor', params.cursor);
+    if (params?.include_speaker_email !== undefined) {
+      query.set('include_speaker_email', String(params.include_speaker_email));
+    }
+    const qs = query.toString();
+    return this.request<MeetingTranscriptPage>(
+      `/meetings/${meetingId}/transcript${qs ? `?${qs}` : ''}`,
+    );
   }
 
   async getMeetingRestrictions(meetingId: string) {

@@ -96,8 +96,8 @@ Three things to know before editing `index.ts`:
 | `create_project` | Create a project (workspace) you own |
 | `list_projects` | List projects (workspaces) you have access to |
 | `get_project` | Get a project by id, with the ids of its linked sessions |
-| `list_meetings` | List personal calendar meetings captured by the Harmonica notetaker |
-| `get_transcript` | Get the persisted transcript and speaker turns for a personal calendar meeting |
+| `list_meetings` | List owned calendar meetings with compact transcript currentness and processing metadata |
+| `get_transcript` | Get one bounded transcript page in turns or text format; exposes but never auto-follows the continuation cursor |
 | `get_meeting_restrictions` | Get effective processing restrictions, pending candidates, and history for an owned meeting |
 | `update_meeting_restrictions` | Set restrictions or review a pending transcript-derived candidate for an owned meeting |
 | `update_project` | Rename a project or update its description (editor role) |
