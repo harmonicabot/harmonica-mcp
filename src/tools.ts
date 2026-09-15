@@ -121,6 +121,12 @@ export const TOOLS_LIST_TTL_MS = 60 * 60 * 1000;
 type Registration = (server: McpServer, client: HarmonicaClient) => void;
 const registrations: Registration[] = [];
 
+type ToolAnnotations = {
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+};
+
 /**
  * Registers one tool.
  *
@@ -140,9 +146,18 @@ function tool<S extends z.ZodRawShape>(
     args: z.infer<z.ZodObject<S>>,
     client: HarmonicaClient,
   ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>,
+  annotations?: ToolAnnotations,
 ): void {
   registrations.push((server, client) => {
-    server.registerTool(name, { description, inputSchema: z.object(shape) }, ((args: z.infer<z.ZodObject<S>>) => handler(args, client)) as never);
+    server.registerTool(
+      name,
+      {
+        description,
+        inputSchema: z.object(shape),
+        ...(annotations ? { annotations } : {}),
+      },
+      ((args: z.infer<z.ZodObject<S>>) => handler(args, client)) as never,
+    );
   });
 }
 
@@ -629,6 +644,46 @@ tool(
         text: `Session reopened.\n\n  ID:     ${session.id}\n  Status: ${session.status}`,
       }],
     };
+  },
+);
+
+tool(
+  'close_stale_empty_sessions',
+  'Preview or atomically close platform sessions older than a cutoff with no participant threads. Requires a dedicated current-admin cleanup key; dry-run is the default and execution requires the preview count, fingerprint, and explicit confirmation.',
+  {
+    cutoff: z.iso
+      .datetime({ offset: true })
+      .describe('ISO timestamp at least 30 days old'),
+    execute: z
+      .boolean()
+      .default(false)
+      .describe('False previews the aggregate candidate set; true requests closure'),
+    expected_count: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe('Candidate count returned by the approved dry run'),
+    expected_fingerprint: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/)
+      .optional()
+      .describe('Candidate fingerprint returned by the approved dry run'),
+    confirmation: z
+      .literal('CLOSE_STALE_EMPTY_SESSIONS')
+      .optional()
+      .describe('Required only when execute is true'),
+  },
+  async (params, client) => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify(await client.cleanupStaleEmptySessions(params), null, 2),
+    }],
+  }),
+  {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
   },
 );
 
