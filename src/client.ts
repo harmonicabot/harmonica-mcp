@@ -237,6 +237,16 @@ export interface SessionLifecycleResponse {
   updated_at: string;
 }
 
+export interface PlatformSessionCleanupResponse {
+  mode: 'dry_run' | 'execute';
+  status: 'preview' | 'applied' | 'already_applied';
+  cutoff: string;
+  candidate_count: number;
+  fingerprint: string;
+  closed_count: number;
+  remaining_candidate_count: number;
+}
+
 export class HarmonicaClient {
   private baseUrl: string;
   private apiKey: string;
@@ -632,6 +642,22 @@ export class HarmonicaClient {
     return this.request<SessionLifecycleResponse>(`/sessions/${id}/reopen`, {
       method: 'POST',
     });
+  }
+
+  async cleanupStaleEmptySessions(params: {
+    cutoff: string;
+    execute?: boolean;
+    expected_count?: number;
+    expected_fingerprint?: string;
+    confirmation?: 'CLOSE_STALE_EMPTY_SESSIONS';
+  }) {
+    return this.request<PlatformSessionCleanupResponse>(
+      '/platform/sessions/cleanup',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      },
+    );
   }
 
   async listTelegramGroups(): Promise<
