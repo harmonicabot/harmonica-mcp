@@ -48,6 +48,7 @@ Share the join URL with participants. Once they've responded, use `get_responses
 | `update_session` | Update session metadata (topic, goal, context, critical, prompt; `project_id` to move it into a project or `null` to detach) |
 | `close_session` | End a session without deleting its participant threads, messages, summaries, or other data |
 | `reopen_session` | Reopen a completed session so participants can join again |
+| `close_stale_empty_sessions` | Preview or atomically close platform sessions older than a cutoff with no participant threads; requires a dedicated current-admin cleanup key and fingerprint confirmation |
 | `list_sessions` | Paginate session metadata with optional status/search filters; `platform` scope requires a separately authorized global-admin audit key |
 | `get_session` | Get full session details (includes facilitation prompt) |
 | `get_questions` | Get pre-session questions (data collection form) |

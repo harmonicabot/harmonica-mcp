@@ -73,6 +73,74 @@ describe('HarmonicaClient session lifecycle', () => {
   });
 });
 
+describe('HarmonicaClient.cleanupStaleEmptySessions', () => {
+  it('POSTs the aggregate dry-run request to the dedicated platform endpoint', async () => {
+    const response = {
+      mode: 'dry_run',
+      status: 'preview',
+      cutoff: '2026-08-15T00:00:00.000Z',
+      candidate_count: 181,
+      fingerprint: `sha256:${'a'.repeat(64)}`,
+      closed_count: 0,
+      remaining_candidate_count: 181,
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://app.harmonica.chat',
+      apiKey: 'hm_live_test',
+    });
+
+    const result = await client.cleanupStaleEmptySessions({
+      cutoff: response.cutoff,
+    });
+
+    expect(result).toEqual(response);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      'https://app.harmonica.chat/api/v1/platform/sessions/cleanup',
+    );
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({ cutoff: response.cutoff });
+  });
+
+  it('forwards every explicit execution guard without session IDs', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        mode: 'execute',
+        status: 'applied',
+        cutoff: '2026-08-15T00:00:00.000Z',
+        candidate_count: 2,
+        fingerprint: `sha256:${'b'.repeat(64)}`,
+        closed_count: 2,
+        remaining_candidate_count: 0,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new HarmonicaClient({
+      baseUrl: 'https://app.harmonica.chat',
+      apiKey: 'hm_live_test',
+    });
+    const params = {
+      cutoff: '2026-08-15T00:00:00.000Z',
+      execute: true,
+      expected_count: 2,
+      expected_fingerprint: `sha256:${'b'.repeat(64)}`,
+      confirmation: 'CLOSE_STALE_EMPTY_SESSIONS' as const,
+    };
+
+    await client.cleanupStaleEmptySessions(params);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual(params);
+  });
+});
+
 describe('HarmonicaClient.listSessions', () => {
   it('forwards platform scope and pagination while preserving audit timestamps', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(

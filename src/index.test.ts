@@ -78,12 +78,12 @@ describe('tools/list over stdio', () => {
   it('registers every tool exactly once', async () => {
     const { result } = await request(undefined);
     const names = result.tools.map((t: any) => t.name);
-    expect(names).toHaveLength(28);
+    expect(names).toHaveLength(29);
     expect(new Set(names).size).toBe(names.length);
     // Spot-check across the surface rather than pinning the whole list, which would make every
     // new tool a test edit. These four span sessions, chat, method specs and projects.
     expect(names).toEqual(
-      expect.arrayContaining(['create_session', 'close_session', 'reopen_session', 'chat_message', 'install_method_spec', 'publish_sensemaking_topic', 'create_unconference_topic', 'get_meeting_restrictions', 'update_meeting_restrictions']),
+      expect.arrayContaining(['create_session', 'close_session', 'reopen_session', 'close_stale_empty_sessions', 'chat_message', 'install_method_spec', 'publish_sensemaking_topic', 'create_unconference_topic', 'get_meeting_restrictions', 'update_meeting_restrictions']),
     );
   });
 
@@ -165,6 +165,35 @@ describe('tools/list over stdio', () => {
     expect(listSessions.inputSchema.properties.offset.minimum).toBe(0);
   });
 
+  it('publishes guarded stale-session cleanup with consequential safety annotations', async () => {
+    const { result } = await request(undefined);
+    const cleanup = result.tools.find(
+      (t: any) => t.name === 'close_stale_empty_sessions',
+    );
+
+    expect(cleanup.inputSchema.required).toEqual(['cutoff']);
+    expect(cleanup.inputSchema.properties).not.toHaveProperty('session_ids');
+    expect(cleanup.inputSchema.properties.execute).toMatchObject({
+      type: 'boolean',
+      default: false,
+    });
+    expect(cleanup.inputSchema.properties.expected_count).toMatchObject({
+      type: 'integer',
+      minimum: 0,
+    });
+    expect(cleanup.inputSchema.properties.expected_fingerprint.pattern).toBe(
+      '^sha256:[0-9a-f]{64}$',
+    );
+    expect(cleanup.inputSchema.properties.confirmation.const).toBe(
+      'CLOSE_STALE_EMPTY_SESSIONS',
+    );
+    expect(cleanup.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+    });
+  });
+
   it('emits the tools/list cache hint to 2026-07-28 clients', async () => {
     const { result } = await request({ _meta: MODERN_META });
     expect(result.ttlMs).toBe(60 * 60 * 1000);
@@ -187,7 +216,7 @@ describe('tools/list over stdio', () => {
     const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'tools.ts'), 'utf8');
     const calls = src.match(/registerTool\(/g) ?? [];
     expect(calls, 'more than one registerTool call — the single wrapping boundary is gone').toHaveLength(1);
-    expect(src).toMatch(/registerTool\(name, \{ description, inputSchema: z\.object\(shape\) \}/);
+    expect(src).toMatch(/inputSchema: z\.object\(shape\)/);
   });
 
   it('rejects a malformed 2026-07-28 envelope', async () => {
