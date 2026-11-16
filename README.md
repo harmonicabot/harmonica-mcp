@@ -1,8 +1,14 @@
-# Harmonica MCP Server
+# Harmonica MCP compatibility adapter
 
 [![npm version](https://img.shields.io/npm/v/harmonica-mcp)](https://www.npmjs.com/package/harmonica-mcp)
 
-MCP server enabling AI agents to create and query [Harmonica](https://harmonica.chat) collective dialogues.
+The hosted MCP endpoint in Harmonica Pro is the primary MCP implementation:
+`https://app.harmonica.chat/api/mcp/mcp`. New integrations should use it directly.
+
+This npm package remains supported for existing stdio clients and OSS/self-hosted
+instances that expose the Harmonica REST API. It receives security and
+compatibility fixes; new MCP capabilities are developed in Pro and are not
+automatically backported. The package is not deprecated or scheduled for removal.
 
 [Harmonica](https://harmonica.chat) is a structured deliberation platform where groups coordinate through AI-facilitated async conversations. Create a session with a topic and goal, share a link with participants, and each person has a private 1:1 conversation with an AI facilitator. Responses are synthesized into actionable insights. [Learn more](https://help.harmonica.chat).
 
@@ -16,7 +22,32 @@ MCP server enabling AI agents to create and query [Harmonica](https://harmonica.
 
 ### 2. Configure your MCP client
 
-Add to your MCP client config (e.g. Claude Code, Cursor, Windsurf):
+For a new connection, use hosted MCP. This Claude Code example uses an
+environment-variable reference, so the key stays out of configuration and CLI
+arguments. Load `HARMONICA_API_KEY` into the environment that starts Claude Code
+and keep it available after restarts:
+
+```json
+{
+  "mcpServers": {
+    "harmonica": {
+      "type": "http",
+      "url": "https://app.harmonica.chat/api/mcp/mcp",
+      "headers": { "Authorization": "Bearer ${HARMONICA_API_KEY}" }
+    }
+  }
+}
+```
+
+Other clients use their own configuration and environment-reference syntax; see
+the [MCP connection guide](https://help.harmonica.chat/api-reference/mcp-server).
+Existing stdio registrations can stay in place.
+
+#### Standalone stdio (compatibility)
+
+Use the npm package when your client requires stdio or you connect to a
+self-hosted Harmonica REST API. Node.js 20 or newer is required. This example is
+a private local client configuration; do not commit a real key:
 
 ```json
 {
@@ -32,6 +63,11 @@ Add to your MCP client config (e.g. Claude Code, Cursor, Windsurf):
 }
 ```
 
+Set the server's `HARMONICA_API_URL` environment variable to your instance's base
+URL for self-hosting (for example, `http://localhost:3000`, without `/api/v1`).
+The default remains `https://app.harmonica.chat` for existing users. This adapter
+calls that instance's REST API; it does not make Harmonica available offline.
+
 ### 3. Start a deliberation
 
 Ask your AI agent to create a session:
@@ -40,7 +76,12 @@ Ask your AI agent to create a session:
 
 Share the join URL with participants. Once they've responded, use `get_responses` and `get_summary` to see the results.
 
-## Tools
+## Standalone tools
+
+Hosted MCP also exposes application-runtime capabilities, including onboarding
+continuation and chain control, that are not available in this adapter. Consult
+the [hosted tools guide](https://help.harmonica.chat/api-reference/mcp-server)
+for that surface.
 
 | Tool | Description |
 |------|-------------|
@@ -90,13 +131,15 @@ Then use `node /path/to/harmonica-mcp/dist/index.js` instead of `npx -y harmonic
 | `HARMONICA_API_KEY` | Yes | — | Your Harmonica API key |
 | `HARMONICA_API_URL` | No | `https://app.harmonica.chat` | API base URL |
 
-## Roadmap
+## Maintenance policy
 
-- [ ] One-command install via `npx add-mcp` (auto-detects Claude Code, Cursor, Windsurf)
-- [ ] HTTP transport — zero-install setup, just add a URL
-- [ ] Inbound context — feed external data into sessions via MCP
-- [ ] Session templates discovery tool
-- [ ] TypeScript and Python client SDKs
+- Fix security issues, regressions, and compatibility problems affecting the
+  package's supported transports and existing REST API integrations.
+- Develop new MCP product capabilities in Pro. Feature parity with hosted MCP is
+  not a release requirement for this package.
+- Keep existing stdio and self-hosted setups working. Any future deprecation
+  requires identifying affected clients and publishing a migration path first;
+  no retirement date is set.
 
 ## See Also
 

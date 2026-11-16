@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MCP (Model Context Protocol) server for Harmonica, enabling AI agents to create and query Harmonica sessions programmatically. Published to npm as `harmonica-mcp`.
 
+## Maintenance scope
+
+Pro's hosted endpoint, `https://app.harmonica.chat/api/mcp/mcp`, is the primary
+MCP implementation and the default for new integrations. This package is a
+maintenance-only compatibility adapter for existing stdio clients and
+OSS/self-hosted REST API instances. Fix security issues, regressions and
+compatibility problems in its supported transports; develop new MCP product
+capabilities in Pro. Do not require automatic feature parity with hosted MCP.
+The package remains published and supported. Deprecation or archival needs a
+separate decision based on affected clients and a documented migration path.
+
 ## Commands
 
 ```bash
